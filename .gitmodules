@@ -13,3 +13,6 @@
 [submodule "src/Button"]
 	path = src/Button
 	url = ssh://git@github.com/arduino-library/Button
+[submodule "src/Led"]
+	path = src/Led
+	url = ssh://git@github.com/arduino-library/Led

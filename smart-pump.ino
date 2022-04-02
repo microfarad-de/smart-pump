@@ -43,6 +43,7 @@
 #include <Arduino.h>
 #include "src/Adc/Adc.h"
 #include "src/Cli/Cli.h"
+#include "src/Led/Led.h"
 #include "src/Nvm/Nvm.h"
 #include "src/Button/Button.h"
 
@@ -51,8 +52,8 @@
  * Pin assignment
  */
 #define NUM_APINS           1  // Number of analog pins in use
-#define CURRENT_APIN ADC_PIN2  // Analog pin for sensing the pump current draw
-#define OUTPUT_PIN          9  // Digital output pin controlling the gate of the power MOSFET
+#define I_APIN       ADC_PIN2  // Analog pin for sensing the pump current draw
+#define MOSFET_PIN          9  // Digital output pin controlling the gate of the power MOSFET
 #define LED_PIN            10  // Digital output pin controlling the status LED
 #define BUTTON_PIN         11  // Digital input pin reading the push button
 
@@ -60,18 +61,27 @@
 /*
  * Configuration parameters
  */
-#define SERIAL_BAUD      115200  // Serial communication baud rate
-#define ADC_AVG_SAMPLES       1  // Number of ADC samples to be averaged
-#define DEBOUNCE_SAMPLES     10  // Button debouncing level
+#define SERIAL_BAUD       115200  // Serial communication baud rate
+#define ADC_AVG_SAMPLES      128  // Number of ADC samples to be averaged
+#define DEBOUNCE_SAMPLES     20   // Button debouncing level (ms until a button press is detected)
+#define LONG_PRESS_DURATION 5000  // Long button press duration in ms
+#define TOP_UP_INTERVAL       10  // Time in minutes between consecutive tank top-up attempts
+#define MEAS_DURATION       1000  // Pump current measurement duration in ms
 
 
 /*
  * Global variables
  */
 struct {
-  enum {OFF, STANDBY, PUMP, CAL_I_PUMP, CAL_I_FULL, CAL_I_DRY} state = OFF;  // Main state
-  uint16_t adcVal;  // ADC reading value
-  uint16_t mosfet;  // MOSFET switch state
+  enum {
+    OFF_E, OFF,
+    STANDBY_E, STANDBY,
+    PUMP_E, PUMP,
+    CAL_E, CAL_I_PUMP, CAL_I_FULL, CAL_I_DRY} state = OFF_E;  // Main state
+  uint16_t adcVal;   // ADC reading value
+  uint16_t mosfet;   // MOSFET switch state
+  uint16_t thrDry;   // Current threshold for dry run detection
+  uint16_t thrFull;  // Current threshold for full tank detection
 } G;
 
 
@@ -80,8 +90,9 @@ struct {
  */
 struct {
   uint16_t iDry;   // ADC reading when the pump is running dry
-  uint16_t iPump;  // ADC reading for regular pumping operation
   uint16_t iFull;  // ADC reading when the pump water output is blocked
+  uint16_t iPump;  // ADC reading for regular pumping operation
+                   // Note: iDry < iFull < iPump
 } Nvm;
 
 
@@ -89,15 +100,18 @@ struct {
  * Objects
  */
 ButtonClass Button;
+LedClass    Led;
 
 
 /*
  * Function declarations
  */
-void nvmRead  (void);
-void nvmWrite (void);
-int  cmdShow  (int argc, char **argv);
-int  cmdRom   (int argc, char **argv);
+void nvmRead   (void);
+void nvmWrite  (void);
+void mosfetOff (void);
+void mosfetOn  (void);
+int  cmdShow   (int argc, char **argv);
+int  cmdRom    (int argc, char **argv);
 
 
 /*
@@ -107,13 +121,11 @@ void setup () {
   // clear MCU status register following a watchdog reset
   MCUSR = 0;
 
-  pinMode      (OUTPUT_PIN, OUTPUT);
-  digitalWrite (OUTPUT_PIN, LOW);
+  pinMode      (MOSFET_PIN, OUTPUT);
+  digitalWrite (MOSFET_PIN, LOW);
   pinMode      (LED_PIN, OUTPUT);
   digitalWrite (LED_PIN, LOW);
   pinMode      (BUTTON_PIN, INPUT_PULLUP);
-  //pinMode      (LED_BUILTIN, OUTPUT);
-  //digitalWrite (LED_BUILTIN, HIGH);
 
   Cli.init ( SERIAL_BAUD );
   Serial.println ("");
@@ -126,10 +138,10 @@ void setup () {
   Cli.newCmd     ("."   , ""                                         , cmdShow);
   Cli.newCmd     ("r"   , "Show the calibration data"                , cmdRom);
 
-  AdcPin_t adcPins[NUM_APINS] = {CURRENT_APIN};
+  AdcPin_t adcPins[NUM_APINS] = {I_APIN};
   Adc.initialize (ADC_PRESCALER_128, ADC_INTERNAL, ADC_AVG_SAMPLES, NUM_APINS, adcPins);
-
-  Button.initialize (BUTTON_PIN, LOW, DEBOUNCE_SAMPLES);
+  Button.initialize (BUTTON_PIN, LOW, DEBOUNCE_SAMPLES, LONG_PRESS_DURATION);
+  Led.initialize (LED_PIN);
 
   nvmRead ();
 }
@@ -139,11 +151,107 @@ void setup () {
  * Main loop
  */
 void loop () {
+  static uint32_t measTs  = 0;
+  static uint32_t topupTs  = 0;
+  uint32_t ts = millis ();
 
   Cli.getCmd ();
-
   Button.read ();
+  Button.rising ();
+  Led.loopHandler ();
 
+  if (Button.longPress ()) {
+    if (G.state < G.CAL_E) G.state = G.CAL_E;
+    else                   G.state = G.OFF_E;
+  }
+
+  if (Adc.readAll ()) {
+    G.adcVal = Adc.result[I_APIN];
+  }
+
+
+  switch (G.state) {
+
+    // OFF: No pumping until button is pressed
+    case G.OFF_E:
+      mosfetOff ();
+      Led.turnOff ();
+      G.state = G.OFF;
+    case G.OFF:
+      if (Button.falling()) {
+        G.state = G.PUMP_E;
+      }
+      break;
+
+    // STANDBY: Periodically activate pump to top-up the water tank
+    case G.STANDBY_E:
+      mosfetOff ();
+      Led.blink (-1, 100, 4900);
+      topupTs = ts;
+      G.state = G.STANDBY;
+    case G.STANDBY:
+      if (Button.falling()) {
+        G.state = G.OFF_E;
+      }
+      if (ts - topupTs > TOP_UP_INTERVAL * 60000) {
+        G.state = G.PUMP_E;
+      }
+      break;
+
+    // PUMP: Pumping water
+    case G.PUMP_E:
+      mosfetOn ();
+      Led.turnOn ();
+      measTs = ts;
+      G.state = G.PUMP;
+    case G.PUMP:
+      if (Button.falling()) {
+        G.state = G.OFF_E;
+      }
+      if (G.adcVal > G.thrFull) {
+        measTs = ts;
+      }
+      else if (ts - measTs > MEAS_DURATION) {
+        if      (G.adcVal < G.thrDry)  G.state = G.OFF_E;
+        else if (G.adcVal < G.thrFull) G.state = G.STANDBY_E;
+      }
+      break;
+
+    // CAL: Calibration
+    case G.CAL_E:
+      mosfetOn ();
+      Led.blink (-1, 1000, 1000);
+      G.state = G.CAL_I_PUMP;
+
+    // Calibrate pumping current
+    case G.CAL_I_PUMP:
+      if (Button.falling ()) {
+        Nvm.iPump = G.adcVal;
+        nvmWrite ();
+        Led.blink (-1, 500, 500);
+        G.state = G.CAL_I_FULL;
+      }
+      break;
+
+    // Calibrate full current (water output is blocked)
+    case G.CAL_I_FULL:
+      if (Button.falling ()) {
+        Nvm.iFull = G.adcVal;
+        nvmWrite ();
+        Led.blink (-1, 250, 250);
+        G.state = G.CAL_I_DRY;
+      }
+      break;
+
+    // Calibrate dry run current
+    case G.CAL_I_DRY:
+      if (Button.falling ()) {
+        Nvm.iDry = G.adcVal;
+        nvmWrite ();
+        G.state = G.OFF_E;
+      }
+      break;
+  }
 }
 
 
@@ -152,6 +260,8 @@ void loop () {
  */
 void nvmRead (void) {
   eepromRead (0x0, (uint8_t*)&Nvm, sizeof (Nvm));
+  G.thrDry  = (Nvm.iDry + Nvm.iFull) / 2;
+  G.thrFull = (Nvm.iFull + Nvm.iPump) / 2;
 }
 
 
@@ -160,6 +270,25 @@ void nvmRead (void) {
  */
 void nvmWrite (void) {
   eepromWrite (0x0, (uint8_t*)&Nvm, sizeof (Nvm));
+  nvmRead ();
+}
+
+
+/*
+ * Turn off pump MOSFET
+ */
+void mosfetOff (void) {
+  G.mosfet = LOW;
+  digitalWrite (MOSFET_PIN, G.mosfet);
+}
+
+
+/*
+ * Turn on pump MOSFET
+ */
+void mosfetOn (void) {
+  G.mosfet = HIGH;
+  digitalWrite (MOSFET_PIN, G.mosfet);
 }
 
 
@@ -167,6 +296,7 @@ void nvmWrite (void) {
  * CLI command for displaying the ADC reading
  */
 int cmdShow (int argc, char **argv) {
+  Cli.xprintf ("Real time data:\n");
   Cli.xprintf ("state  = %u\n", G.state);
   Cli.xprintf ("ADC    = %u\n", G.adcVal);
   Cli.xprintf ("MOSFET = %u\n", G.mosfet);
@@ -180,9 +310,11 @@ int cmdShow (int argc, char **argv) {
  */
 int cmdRom (int argc, char **argv) {
   Cli.xprintf ("Calibration data:\n");
-  Cli.xprintf ("I_dry  = %u\n", Nvm.iDry);
-  Cli.xprintf ("I_pump = %u\n", Nvm.iPump);
-  Cli.xprintf ("I_full = %u\n", Nvm.iFull);
+  Cli.xprintf ("I_dry      = %u\n", Nvm.iDry);
+  Cli.xprintf ("I_full     = %u\n", Nvm.iFull);
+  Cli.xprintf ("I_pump     = %u\n", Nvm.iPump);
+  Cli.xprintf ("I_dry_thr  = %u\n", G.thrDry);
+  Cli.xprintf ("I_full_thr = %u\n", G.thrFull);
   Serial.println ("");
   return 0;
 }
