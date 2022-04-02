@@ -62,13 +62,16 @@
  */
 #define SERIAL_BAUD      115200  // Serial communication baud rate
 #define ADC_AVG_SAMPLES       1  // Number of ADC samples to be averaged
+#define DEBOUNCE_SAMPLES     10  // Button debouncing level
 
 
 /*
  * Global variables
  */
 struct {
-  uint32_t reserved;
+  enum {OFF, STANDBY, PUMP, CAL_I_PUMP, CAL_I_FULL, CAL_I_DRY} state = OFF;  // Main state
+  uint16_t adcVal;  // ADC reading value
+  uint16_t mosfet;  // MOSFET switch state
 } G;
 
 
@@ -76,17 +79,25 @@ struct {
  * Parameters stored in EEPROM (non-volatile memory)
  */
 struct {
-  uint16_t dryRunCurrent;     // ADC reading when the pump is running dry
-  uint16_t pumpingCurrent;    // ADC reading for regular pumping operation
-  uint16_t fullCurrent;       // ADC reading when the pump water output is blocked
+  uint16_t iDry;   // ADC reading when the pump is running dry
+  uint16_t iPump;  // ADC reading for regular pumping operation
+  uint16_t iFull;  // ADC reading when the pump water output is blocked
 } Nvm;
+
+
+/*
+ * Objects
+ */
+ButtonClass Button;
 
 
 /*
  * Function declarations
  */
-void nvmRead      (void);
-void nvmWrite     (void);
+void nvmRead  (void);
+void nvmWrite (void);
+int  cmdShow  (int argc, char **argv);
+int  cmdRom   (int argc, char **argv);
 
 
 /*
@@ -100,7 +111,7 @@ void setup () {
   digitalWrite (OUTPUT_PIN, LOW);
   pinMode      (LED_PIN, OUTPUT);
   digitalWrite (LED_PIN, LOW);
-  pinMode      (BUTTON_PIN, INPUT);
+  pinMode      (BUTTON_PIN, INPUT_PULLUP);
   //pinMode      (LED_BUILTIN, OUTPUT);
   //digitalWrite (LED_BUILTIN, HIGH);
 
@@ -111,13 +122,14 @@ void setup () {
   Cli.xprintf    ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
   Serial.println ("");
   Serial.println (F("'h' for help"));
-  //Cli.newCmd     ("cal" , "Calibrate (arg: <0|25|50|75|100> [value])", cmdCalibrate);
-  //Cli.newCmd     ("s"   , "Show real time readings"                  , cmdShow);
-  //Cli.newCmd     ("."   , ""                                         , cmdShow);
-  //Cli.newCmd     ("r"   , "Show the calibration data"                , cmdRom);
+  Cli.newCmd     ("s"   , "Show real time readings"                  , cmdShow);
+  Cli.newCmd     ("."   , ""                                         , cmdShow);
+  Cli.newCmd     ("r"   , "Show the calibration data"                , cmdRom);
 
   AdcPin_t adcPins[NUM_APINS] = {CURRENT_APIN};
   Adc.initialize (ADC_PRESCALER_128, ADC_INTERNAL, ADC_AVG_SAMPLES, NUM_APINS, adcPins);
+
+  Button.initialize (BUTTON_PIN, LOW, DEBOUNCE_SAMPLES);
 
   nvmRead ();
 }
@@ -129,6 +141,8 @@ void setup () {
 void loop () {
 
   Cli.getCmd ();
+
+  Button.read ();
 
 }
 
@@ -148,3 +162,27 @@ void nvmWrite (void) {
   eepromWrite (0x0, (uint8_t*)&Nvm, sizeof (Nvm));
 }
 
+
+/*
+ * CLI command for displaying the ADC reading
+ */
+int cmdShow (int argc, char **argv) {
+  Cli.xprintf ("state  = %u\n", G.state);
+  Cli.xprintf ("ADC    = %u\n", G.adcVal);
+  Cli.xprintf ("MOSFET = %u\n", G.mosfet);
+  Serial.println ("");
+  return 0;
+}
+
+
+/*
+ * CLI command for displaying the calibration data
+ */
+int cmdRom (int argc, char **argv) {
+  Cli.xprintf ("Calibration data:\n");
+  Cli.xprintf ("I_dry  = %u\n", Nvm.iDry);
+  Cli.xprintf ("I_pump = %u\n", Nvm.iPump);
+  Cli.xprintf ("I_full = %u\n", Nvm.iFull);
+  Serial.println ("");
+  return 0;
+}
