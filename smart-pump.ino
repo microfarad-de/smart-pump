@@ -65,7 +65,7 @@
 #define ADC_AVG_SAMPLES      128  // Number of ADC samples to be averaged
 #define DEBOUNCE_SAMPLES     20   // Button debouncing level (ms until a button press is detected)
 #define LONG_PRESS_DURATION 5000  // Long button press duration in ms
-#define TOP_UP_INTERVAL       10  // Time in minutes between consecutive tank top-up attempts
+#define TOP_UP_INTERVAL        1  // Time in minutes between consecutive tank top-up attempts
 #define MEAS_DURATION       1000  // Pump current measurement duration in ms
 
 
@@ -296,8 +296,8 @@ void mosfetOn (void) {
  * CLI command for displaying the ADC reading
  */
 int cmdShow (int argc, char **argv) {
-  Cli.xprintf ("Real time data:\n");
-  Cli.xprintf ("state  = %u\n", G.state);
+  Cli.xprintf ("Realtime data:\n");
+  Cli.xprintf ("State  = %u\n", G.state);
   Cli.xprintf ("ADC    = %u\n", G.adcVal);
   Cli.xprintf ("MOSFET = %u\n", G.mosfet);
   Serial.println ("");
