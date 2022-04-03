@@ -1,5 +1,9 @@
 # Smart Water Pump
 
+<p align="center">
+<img src="doc/enclosure-1.jpeg" alt="drawing" width="400"/>
+<img src="doc/enclosure-2.jpeg" alt="drawing" width="400"/>
+</p>
 
 This repository contains the Arduino firmware for smart water pump controller.
 
