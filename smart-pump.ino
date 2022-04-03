@@ -61,12 +61,14 @@
 /*
  * Configuration parameters
  */
-#define SERIAL_BAUD       115200  // Serial communication baud rate
-#define ADC_AVG_SAMPLES      128  // Number of ADC samples to be averaged
-#define DEBOUNCE_SAMPLES     20   // Button debouncing level (ms until a button press is detected)
-#define LONG_PRESS_DURATION 5000  // Long button press duration in ms
-#define TOP_UP_INTERVAL        1  // Time in minutes between consecutive tank top-up attempts
-#define MEAS_DURATION       1000  // Pump current measurement duration in ms
+#define SERIAL_BAUD         115200  // Serial communication baud rate
+#define ADC_AVG_SAMPLES        128  // Number of ADC samples to be averaged
+#define DEBOUNCE_SAMPLES        20  // Button debouncing level (ms until a button press is detected)
+#define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
+#define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
+#define MEAS_DURATION         1000  // Pump current measurement duration in ms
+#define CAL_TIMEOUT          30000  // Time in ms to exit the calibration mode if no button was pressed
+#define TOP_UP_INTERVAL         60  // Time in minutes between consecutive tank top-up attempts
 
 
 /*
@@ -74,6 +76,7 @@
  */
 struct {
   enum {
+    ERROR_E, ERROR,
     OFF_E, OFF,
     STANDBY_E, STANDBY,
     PUMP_E, PUMP,
@@ -106,12 +109,13 @@ LedClass    Led;
 /*
  * Function declarations
  */
-void nvmRead   (void);
-void nvmWrite  (void);
-void mosfetOff (void);
-void mosfetOn  (void);
-int  cmdShow   (int argc, char **argv);
-int  cmdRom    (int argc, char **argv);
+void nvmRead     (void);
+void nvmWrite    (void);
+void nvmValidate (void);
+void mosfetOff   (void);
+void mosfetOn    (void);
+int  cmdShow     (int argc, char **argv);
+int  cmdRom      (int argc, char **argv);
 
 
 /*
@@ -140,7 +144,7 @@ void setup () {
 
   AdcPin_t adcPins[NUM_APINS] = {I_APIN};
   Adc.initialize (ADC_PRESCALER_128, ADC_INTERNAL, ADC_AVG_SAMPLES, NUM_APINS, adcPins);
-  Button.initialize (BUTTON_PIN, LOW, DEBOUNCE_SAMPLES, LONG_PRESS_DURATION);
+  Button.initialize (BUTTON_PIN, LOW, DEBOUNCE_SAMPLES);
   Led.initialize (LED_PIN);
 
   nvmRead ();
@@ -151,8 +155,9 @@ void setup () {
  * Main loop
  */
 void loop () {
-  static uint32_t measTs  = 0;
+  static uint32_t measTs   = 0;
   static uint32_t topupTs  = 0;
+  static uint32_t calTs    = 0;
   uint32_t ts = millis ();
 
   Cli.getCmd ();
@@ -160,9 +165,20 @@ void loop () {
   Button.rising ();
   Led.loopHandler ();
 
-  if (Button.longPress ()) {
-    if (G.state < G.CAL_E) G.state = G.CAL_E;
-    else                   G.state = G.OFF_E;
+  if ( G.state < G.CAL_E) {
+    if (Button.longPress (CAL_PRESS_DURATION)) {
+      G.state = G.CAL_E;
+    }
+  }
+  else {
+    if (Button.falling ()) {
+      G.state = G.OFF_E;
+      nvmValidate ();
+    }
+    if (ts - calTs > CAL_TIMEOUT) {
+      G.state = G.OFF_E;
+      nvmValidate ();
+    }
   }
 
   if (Adc.readAll ()) {
@@ -171,6 +187,14 @@ void loop () {
 
 
   switch (G.state) {
+
+    // ERROR: Wrong calibration data, please calibrate
+    case G.ERROR_E:
+      mosfetOff ();
+      Led.blink (-1, 400, 100);
+      G.state = G.ERROR;
+    case G.ERROR:
+      break;
 
     // OFF: No pumping until button is pressed
     case G.OFF_E:
@@ -186,7 +210,7 @@ void loop () {
     // STANDBY: Periodically activate pump to top-up the water tank
     case G.STANDBY_E:
       mosfetOff ();
-      Led.blink (-1, 100, 4900);
+      Led.blink (-1, 100, 1900);
       topupTs = ts;
       G.state = G.STANDBY;
     case G.STANDBY:
@@ -220,35 +244,38 @@ void loop () {
     // CAL: Calibration
     case G.CAL_E:
       mosfetOn ();
-      Led.blink (-1, 1000, 1000);
+      Led.blink (-1, 500, 500);
+      calTs = ts;
       G.state = G.CAL_I_PUMP;
 
     // Calibrate pumping current
     case G.CAL_I_PUMP:
-      if (Button.falling ()) {
+      if (Button.longPress (APPLY_PRESS_DURATION)) {
         Nvm.iPump = G.adcVal;
+        Led.blink (-1, 250, 250);
+        calTs = ts;
         nvmWrite ();
-        Led.blink (-1, 500, 500);
         G.state = G.CAL_I_FULL;
       }
       break;
 
     // Calibrate full current (water output is blocked)
     case G.CAL_I_FULL:
-      if (Button.falling ()) {
+      if (Button.longPress (APPLY_PRESS_DURATION)) {
         Nvm.iFull = G.adcVal;
+        Led.blink (-1, 125, 125);
+        calTs = ts;
         nvmWrite ();
-        Led.blink (-1, 250, 250);
         G.state = G.CAL_I_DRY;
       }
       break;
 
     // Calibrate dry run current
     case G.CAL_I_DRY:
-      if (Button.falling ()) {
+      if (Button.longPress (APPLY_PRESS_DURATION)) {
         Nvm.iDry = G.adcVal;
-        nvmWrite ();
         G.state = G.OFF_E;
+        nvmWrite ();
       }
       break;
   }
@@ -260,8 +287,7 @@ void loop () {
  */
 void nvmRead (void) {
   eepromRead (0x0, (uint8_t*)&Nvm, sizeof (Nvm));
-  G.thrDry  = (Nvm.iDry + Nvm.iFull) / 2;
-  G.thrFull = (Nvm.iFull + Nvm.iPump) / 2;
+  nvmValidate ();
 }
 
 
@@ -270,7 +296,19 @@ void nvmRead (void) {
  */
 void nvmWrite (void) {
   eepromWrite (0x0, (uint8_t*)&Nvm, sizeof (Nvm));
-  nvmRead ();
+  nvmValidate ();
+}
+
+
+/*
+ * Validate EEPROM data
+ */
+void nvmValidate (void) {
+  if (Nvm.iDry >= Nvm.iPump - 10)  G.state = G.ERROR_E;
+  if (Nvm.iDry >= Nvm.iFull - 10)  G.state = G.ERROR_E;
+  if (Nvm.iFull >= Nvm.iPump - 10) G.state = G.ERROR_E;
+  G.thrDry  = (Nvm.iDry + Nvm.iFull) / 2;
+  G.thrFull = (Nvm.iFull + Nvm.iPump) / 2;
 }
 
 
