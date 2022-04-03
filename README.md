@@ -79,7 +79,7 @@ If the LED stays constantly lit and briefly turns of every 0.5 s, then calibrati
 The following picture shows the smart pump controller circuit diagram:
 
 <p align="center">
-  <img src="doc/schematic.png" width="600"/>
+  <img src="doc/schematic.png" width="700"/>
 </p>
 
 [schematic.pdf](doc/schematic.pdf)
