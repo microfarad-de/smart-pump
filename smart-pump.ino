@@ -66,9 +66,9 @@
 #define DEBOUNCE_SAMPLES        20  // Button debouncing level (ms until a button press is detected)
 #define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
 #define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
-#define MEAS_DURATION         1000  // Pump current measurement duration in ms
+#define MEAS_DURATION         2000  // Pump current measurement duration in ms
 #define CAL_TIMEOUT          30000  // Time in ms to exit the calibration mode if no button was pressed
-#define TOP_UP_INTERVAL         60  // Time in minutes between consecutive tank top-up attempts
+#define TOP_UP_INTERVAL         30  // Time in minutes between consecutive tank top-up attempts
 
 
 /*
@@ -191,7 +191,7 @@ void loop () {
     // ERROR: Wrong calibration data, please calibrate
     case G.ERROR_E:
       mosfetOff ();
-      Led.blink (-1, 400, 100);
+      Led.blink (-1, 900, 100);
       G.state = G.ERROR;
     case G.ERROR:
       break;
