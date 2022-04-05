@@ -47,7 +47,7 @@ The controller is designed to work with "Comet Lux-Plus" water pump whose approx
 
 Pumping is started and stopped by pressing the push button. The pump will be automatically deactivated if the dry run condition has been detected.
 
-If the full tank condition is detected, the controller will deactivate the pump and go into the standby mode. Whereas the controller will periodically attempt the reactivate the water pump once p in order to top up the tank.
+If the full tank condition is detected, the controller will deactivate the pump and go into the standby mode. Whereas the controller will periodically attempt the reactivate the water pump once p in order to top up the tank. The default time duration between two top-up attempts is 30 minutes and is defined by the `TOP_UP_INTERVAL` macro.
 
 A status LED indicates the operation status through different blinking patterns as shown in the table below:
 
@@ -56,7 +56,7 @@ A status LED indicates the operation status through different blinking patterns 
 | Always on                     | Pumping water                                    |
 | Always off                    | Power off state, press button to start pumping   |
 | Blink once every 2 s          | Standby state, the pump will start periodically  |
-| Inverse blink every second    | Error, calibration needed                        |
+| Inverse blink every 0.5 s     | Error, calibration needed                        |
 | Even blink with 1 s period    | Pumping current calibration                      |
 | Even blink with 0.5 s period  | Full / blocked current calibration               |
 | Even blink with 0.25 s period | Dry run current calibration                      |
@@ -71,7 +71,7 @@ Squeeze the pump output hose to ensure that the water flow is completely blocked
 
 Raise the pump above water level to ensure it is running dry, then long-press the button during 1 second to store the current value. If the calibration procedure was successful, the LED will turn off and the controller will go to the power off state.
 
-If the LED stays constantly lit and briefly turns off once per second, then calibration procedure has been faulty and needs to be repeated.
+If the LED stays constantly lit and briefly turns off twice per second, then calibration procedure has been faulty and needs to be repeated.
 
 
 ## Circuit Diagram

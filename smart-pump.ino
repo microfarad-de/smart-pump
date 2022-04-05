@@ -191,7 +191,7 @@ void loop () {
     // ERROR: Wrong calibration data, please calibrate
     case G.ERROR_E:
       mosfetOff ();
-      Led.blink (-1, 900, 100);
+      Led.blink (-1, 500, 100);
       G.state = G.ERROR;
     case G.ERROR:
       break;
