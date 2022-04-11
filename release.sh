@@ -12,16 +12,6 @@ version_maint=$(cat $version_file | grep VERSION_MAINT | awk -F' ' '{print $3}')
 
 version="$version_major.$version_minor.$version_maint"
 
-#version_old=$(cat "$file_name.ino" | grep " * Version:" | awk -F' ' '{print $3}')
-
-#if [[ "$version_old" == "$version" ]]; then
-#  version_maint=$((version_maint+1))
-#  echo $version_maint
-#  version="$version_major.$version_minor.$version_maint"
-#  sed -i -e "s/.*VERSION_MAINT.*/#define VERSION_MAINT $version_maint  \/\/ Maintenance version/" "version.h"
-#  rm -rf "version.h-e"
-#fi
-
 if [[ -z $version ]]; then
   echo "Error: No version string specified"
   exit 1
