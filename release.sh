@@ -18,7 +18,7 @@ if [[ -z $version ]]; then
 fi
 
 sed -i -e "s/.* * Version:.*/ * Version: $version/" "$file_name.ino"
-sed -i -e "s/.* * Date:.*/ * Date:    $(date '+%b %d, %Y')/" "$file_name.ino"
+sed -i -e "s/.* * Date:.*/ * Date:    $(date '+%B %Y')/" "$file_name.ino"
 rm -rf "$file_name.ino-e"
 
 rm -rf "$file_name-"*"-full"*

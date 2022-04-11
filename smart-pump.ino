@@ -34,7 +34,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Version: 2.0.0
- * Date:    Apr 11, 2022
+ * Date:    April 2022
  */
 
 
