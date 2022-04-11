@@ -51,8 +51,9 @@
 /*
  * Pin assignment
  */
-#define NUM_APINS           1  // Number of analog pins in use
+#define NUM_APINS           2  // Number of analog pins in use
 #define I_APIN       ADC_PIN2  // Analog pin for sensing the pump current draw
+#define V_APIN       ADC_PIN3  // Analog pin for sensing the power supply voltage
 #define MOSFET_PIN          9  // Digital output pin controlling the gate of the power MOSFET
 #define LED_PIN            10  // Digital output pin controlling the status LED
 #define BUTTON_PIN         11  // Digital input pin reading the push button
@@ -62,7 +63,7 @@
  * Configuration parameters
  */
 #define SERIAL_BAUD         115200  // Serial communication baud rate
-#define ADC_AVG_SAMPLES        128  // Number of ADC samples to be averaged
+#define ADC_AVG_SAMPLES         64  // Number of ADC samples to be averaged
 #define DEBOUNCE_SAMPLES        20  // Button debouncing level (ms until a button press is detected)
 #define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
 #define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
@@ -81,10 +82,15 @@ struct {
     STANDBY_E, STANDBY,
     PUMP_E, PUMP,
     CAL_E, CAL_I_PUMP, CAL_I_FULL, CAL_I_DRY} state = OFF_E;  // Main state
-  uint16_t adcVal;   // ADC reading value
-  uint16_t mosfet;   // MOSFET switch state
-  uint16_t thrDry;   // Current threshold for dry run detection
-  uint16_t thrFull;  // Current threshold for full tank detection
+  uint16_t iAdcVal;      // ADC pump current reading value
+  uint16_t vAdcVal;      // ADC power supply voltage value
+  uint16_t mosfet;       // MOSFET switch state
+  uint16_t thrDry;       // Current threshold for dry run detection
+  uint16_t thrFull;      // Current threshold for full tank detection
+  uint16_t vAvgDry;      // Average power supply voltage at calibration time of the dry run threshold
+  uint16_t vAvgFull;     // Average power supply voltage at calibration time of the full tank threshold
+  uint16_t iAdcDryVal;   // Normalized ADC value for detecting the dry run condition
+  uint16_t iAdcFullVal;  // Normalized ADC value for detecting the Full tank condition
 } G;
 
 
@@ -96,6 +102,9 @@ struct {
   uint16_t iFull;  // ADC reading when the pump water output is blocked
   uint16_t iPump;  // ADC reading for regular pumping operation
                    // Note: iDry < iFull < iPump
+  uint16_t vDry;   // Power supply voltage at dry run calibration time
+  uint16_t vFull;  // Power supply voltage at full calibration time
+  uint16_t vPump;  // Power supply voltage at regular pumping calibration time
 } Nvm;
 
 
@@ -142,7 +151,7 @@ void setup () {
   Cli.newCmd     ("."   , ""                                         , cmdShow);
   Cli.newCmd     ("r"   , "Show the calibration data"                , cmdRom);
 
-  AdcPin_t adcPins[NUM_APINS] = {I_APIN};
+  AdcPin_t adcPins[NUM_APINS] = {I_APIN, V_APIN};
   Adc.initialize (ADC_PRESCALER_128, ADC_INTERNAL, ADC_AVG_SAMPLES, NUM_APINS, adcPins);
   Button.initialize (BUTTON_PIN, LOW, DEBOUNCE_SAMPLES);
   Led.initialize (LED_PIN);
@@ -155,9 +164,11 @@ void setup () {
  * Main loop
  */
 void loop () {
-  static uint32_t measTs   = 0;
-  static uint32_t topupTs  = 0;
-  static uint32_t calTs    = 0;
+  static uint32_t measTs         = 0;
+  static uint32_t topupTs        = 0;
+  static uint32_t calTs          = 0;
+  static uint16_t iAdcDryValMin  = 0;
+  static uint16_t iAdcFullValMin = 0;
   uint32_t ts = millis ();
 
   Cli.getCmd ();
@@ -182,9 +193,11 @@ void loop () {
   }
 
   if (Adc.readAll ()) {
-    G.adcVal = Adc.result[I_APIN];
+    G.iAdcVal     = Adc.result[I_APIN];
+    G.vAdcVal     = Adc.result[V_APIN];
+    G.iAdcDryVal  = (G.iAdcVal * G.vAvgDry) / G.vAdcVal;
+    G.iAdcFullVal = (G.iAdcVal * G.vAvgFull) / G.vAdcVal;
   }
-
 
   switch (G.state) {
 
@@ -200,6 +213,7 @@ void loop () {
     case G.OFF_E:
       mosfetOff ();
       Led.turnOff ();
+      Led.blink (1, 100, 1900);
       G.state = G.OFF;
     case G.OFF:
       if (Button.falling()) {
@@ -232,12 +246,18 @@ void loop () {
       if (Button.falling()) {
         G.state = G.OFF_E;
       }
-      if (G.adcVal > G.thrFull) {
+      if (G.iAdcFullVal > G.thrFull) {
         measTs = ts;
+        iAdcDryValMin  = G.iAdcDryVal;
+        iAdcFullValMin = G.iAdcFullVal;
       }
       else if (ts - measTs > MEAS_DURATION) {
-        if      (G.adcVal < G.thrDry)  G.state = G.OFF_E;
-        else if (G.adcVal < G.thrFull) G.state = G.STANDBY_E;
+        if      (iAdcDryValMin < G.thrDry)   G.state = G.OFF_E;
+        else if (iAdcFullValMin < G.thrFull) G.state = G.STANDBY_E;
+      }
+      else {
+        if (G.iAdcDryVal < iAdcDryValMin)   iAdcDryValMin = G.iAdcDryVal;
+        if (G.iAdcFullVal < iAdcFullValMin) iAdcFullValMin = G.iAdcFullVal;
       }
       break;
 
@@ -251,7 +271,8 @@ void loop () {
     // Calibrate pumping current
     case G.CAL_I_PUMP:
       if (Button.longPress (APPLY_PRESS_DURATION)) {
-        Nvm.iPump = G.adcVal;
+        Nvm.iPump = G.iAdcVal;
+        Nvm.vPump = G.vAdcVal;
         Led.blink (-1, 250, 250);
         calTs = ts;
         nvmWrite ();
@@ -262,7 +283,8 @@ void loop () {
     // Calibrate full current (water output is blocked)
     case G.CAL_I_FULL:
       if (Button.longPress (APPLY_PRESS_DURATION)) {
-        Nvm.iFull = G.adcVal;
+        Nvm.iFull = G.iAdcVal;
+        Nvm.vFull = G.vAdcVal;
         Led.blink (-1, 125, 125);
         calTs = ts;
         nvmWrite ();
@@ -273,7 +295,8 @@ void loop () {
     // Calibrate dry run current
     case G.CAL_I_DRY:
       if (Button.longPress (APPLY_PRESS_DURATION)) {
-        Nvm.iDry = G.adcVal;
+        Nvm.iDry = G.iAdcVal;
+        Nvm.vDry = G.vAdcVal;
         G.state = G.OFF_E;
         nvmWrite ();
       }
@@ -304,11 +327,12 @@ void nvmWrite (void) {
  * Validate EEPROM data
  */
 void nvmValidate (void) {
-  if (Nvm.iDry >= Nvm.iPump - 10)  G.state = G.ERROR_E;
   if (Nvm.iDry >= Nvm.iFull - 10)  G.state = G.ERROR_E;
   if (Nvm.iFull >= Nvm.iPump - 10) G.state = G.ERROR_E;
-  G.thrDry  = (Nvm.iDry + Nvm.iFull) / 2;
-  G.thrFull = (Nvm.iFull + Nvm.iPump) / 2;
+  G.thrDry   = (Nvm.iDry + Nvm.iFull) / 2;
+  G.thrFull  = (Nvm.iFull + Nvm.iPump) / 2;
+  G.vAvgDry  = (Nvm.vDry + Nvm.vFull) / 2;
+  G.vAvgFull = (Nvm.vFull + Nvm.vPump) / 2;
 }
 
 
@@ -335,9 +359,12 @@ void mosfetOn (void) {
  */
 int cmdShow (int argc, char **argv) {
   Cli.xprintf ("Realtime data:\n");
-  Cli.xprintf ("State  = %u\n", G.state);
-  Cli.xprintf ("ADC    = %u\n", G.adcVal);
-  Cli.xprintf ("MOSFET = %u\n", G.mosfet);
+  Cli.xprintf ("State      = %u\n", G.state);
+  Cli.xprintf ("I_adc      = %u\n", G.iAdcVal);
+  Cli.xprintf ("I_adc_dry  = %u\n", G.iAdcDryVal);
+  Cli.xprintf ("I_adc_full = %u\n", G.iAdcFullVal);
+  Cli.xprintf ("V_adc      = %u\n", G.vAdcVal);
+  Cli.xprintf ("MOSFET     = %u\n", G.mosfet);
   Serial.println ("");
   return 0;
 }
@@ -349,10 +376,15 @@ int cmdShow (int argc, char **argv) {
 int cmdRom (int argc, char **argv) {
   Cli.xprintf ("Calibration data:\n");
   Cli.xprintf ("I_dry      = %u\n", Nvm.iDry);
+  Cli.xprintf ("V_dry      = %u\n", Nvm.vDry);
   Cli.xprintf ("I_full     = %u\n", Nvm.iFull);
+  Cli.xprintf ("V_full     = %u\n", Nvm.vFull);
   Cli.xprintf ("I_pump     = %u\n", Nvm.iPump);
-  Cli.xprintf ("I_dry_thr  = %u\n", G.thrDry);
-  Cli.xprintf ("I_full_thr = %u\n", G.thrFull);
+  Cli.xprintf ("V_pump     = %u\n", Nvm.vPump);
+  Cli.xprintf ("I_thr_dry  = %u\n", G.thrDry);
+  Cli.xprintf ("V_avg_dry  = %u\n", G.vAvgDry);
+  Cli.xprintf ("I_thr_full = %u\n", G.thrFull);
+  Cli.xprintf ("V_avg_full = %u\n", G.vAvgFull);
   Serial.println ("");
   return 0;
 }
