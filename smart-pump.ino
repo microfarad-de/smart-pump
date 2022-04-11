@@ -34,11 +34,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Version: 2.0.0
- * Date:    April 2022
+ * Date:    Apr 11, 2022
  */
-#define VERSION_MAJOR 2  // Major version
-#define VERSION_MINOR 0  // Minor version
-#define VERSION_MAINT 0  // Maintenance version
+
 
 #include <Arduino.h>
 #include "src/Adc/Adc.h"
@@ -46,6 +44,7 @@
 #include "src/Led/Led.h"
 #include "src/Nvm/Nvm.h"
 #include "src/Button/Button.h"
+#include "version.h"
 
 
 /*
