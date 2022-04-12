@@ -194,8 +194,8 @@ void loop () {
   if (Adc.readAll ()) {
     G.iAdcVal     = Adc.result[I_APIN];
     G.vAdcVal     = Adc.result[V_APIN];
-    G.iAdcDryVal  = (G.iAdcVal * G.vAvgDry) / G.vAdcVal;
-    G.iAdcFullVal = (G.iAdcVal * G.vAvgFull) / G.vAdcVal;
+    G.iAdcDryVal  = ((uint32_t)G.iAdcVal * (uint32_t)G.vAvgDry) / G.vAdcVal;
+    G.iAdcFullVal = ((uint32_t)G.iAdcVal * (uint32_t)G.vAvgFull) / G.vAdcVal;
   }
 
   switch (G.state) {
@@ -212,7 +212,7 @@ void loop () {
     case G.OFF_E:
       mosfetOff ();
       Led.turnOff ();
-      Led.blink (1, 100, 1900);
+      Led.blink (1, 100, 0);
       G.state = G.OFF;
     case G.OFF:
       if (Button.falling()) {
@@ -375,14 +375,14 @@ int cmdShow (int argc, char **argv) {
 int cmdRom (int argc, char **argv) {
   Cli.xprintf ("Calibration data:\n");
   Cli.xprintf ("I_dry      = %u\n", Nvm.iDry);
-  Cli.xprintf ("V_dry      = %u\n", Nvm.vDry);
   Cli.xprintf ("I_full     = %u\n", Nvm.iFull);
-  Cli.xprintf ("V_full     = %u\n", Nvm.vFull);
   Cli.xprintf ("I_pump     = %u\n", Nvm.iPump);
-  Cli.xprintf ("V_pump     = %u\n", Nvm.vPump);
   Cli.xprintf ("I_thr_dry  = %u\n", G.thrDry);
+  Cli.xprintf ("I_thr_full = %u\n", G.thrFull);  
+  Cli.xprintf ("V_dry      = %u\n", Nvm.vDry);
+  Cli.xprintf ("V_full     = %u\n", Nvm.vFull);
+  Cli.xprintf ("V_pump     = %u\n", Nvm.vPump);
   Cli.xprintf ("V_avg_dry  = %u\n", G.vAvgDry);
-  Cli.xprintf ("I_thr_full = %u\n", G.thrFull);
   Cli.xprintf ("V_avg_full = %u\n", G.vAvgFull);
   Serial.println ("");
   return 0;
