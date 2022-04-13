@@ -124,5 +124,17 @@ Following are further pictures of the finished project:
   <img src="doc/perspective-4.jpeg" width="400"/>
 </p>
 
+<p align="center">
+  <img src="doc/final-1.jpeg" width="400"/>
+</p>
+
+<p align="center">
+  <img src="doc/final-2.jpeg" width="400"/>
+</p>
+
+<p align="center">
+  <img src="doc/final-3.jpeg" width="400"/>
+</p>
+
 
 
