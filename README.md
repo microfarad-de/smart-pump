@@ -37,7 +37,7 @@ The controller detects one of the following three water pump states by constantl
 * Water flow blocked by the float valve when the caravan tank becomes full
 * Dry run due to the external canister running out of water
 
-The controller is designed to work with "Comet Lux-Plus" water pump whose approximate current draw measured at 13.0 V is shown in the following table:
+The following table shows the approximate current draw of a "Comet Lux-Plus" water pump w at 13.0 V:
 
 | State          | Current  |
 |----------------|----------|
