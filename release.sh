@@ -4,11 +4,10 @@
 
 option="$1"
 file_name="smart-pump"
-version_file="version.h"
 
-version_major=$(cat $version_file | grep VERSION_MAJOR | awk -F' ' '{print $3}')
-version_minor=$(cat $version_file | grep VERSION_MINOR | awk -F' ' '{print $3}')
-version_maint=$(cat $version_file | grep VERSION_MAINT | awk -F' ' '{print $3}')
+version_major=$(cat "$file_name.ino" | grep '#define VERSION_MAJOR' | awk -F' ' '{print $3}')
+version_minor=$(cat "$file_name.ino" | grep '#define VERSION_MINOR' | awk -F' ' '{print $3}')
+version_maint=$(cat "$file_name.ino" | grep '#define VERSION_MAINT' | awk -F' ' '{print $3}')
 
 version="$version_major.$version_minor.$version_maint"
 

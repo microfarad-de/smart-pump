@@ -33,9 +33,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 2.0.0
- * Date:    April 13, 2022
+ * Version: 2.0.1
+ * Date:    April 17, 2022
  */
+
+#define VERSION_MAJOR 2  // Major version
+#define VERSION_MINOR 0  // Minor version
+#define VERSION_MAINT 1  // Maintenance version
 
 
 #include <Arduino.h>
@@ -44,7 +48,6 @@
 #include "src/Led/Led.h"
 #include "src/Nvm/Nvm.h"
 #include "src/Button/Button.h"
-#include "version.h"
 
 
 /*
@@ -62,11 +65,11 @@
  * Configuration parameters
  */
 #define SERIAL_BAUD         115200  // Serial communication baud rate
-#define ADC_AVG_SAMPLES         64  // Number of ADC samples to be averaged
+#define ADC_AVG_SAMPLES       1024  // Number of ADC samples to be averaged
 #define DEBOUNCE_SAMPLES        20  // Button debouncing level (ms until a button press is detected)
 #define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
 #define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
-#define MEAS_DURATION         1200  // Pump current measurement duration in ms
+#define MEAS_DURATION         1000  // Pump current measurement duration in ms
 #define CAL_TIMEOUT          30000  // Time in ms to exit the calibration mode if no button was pressed
 #define TOP_UP_INTERVAL         30  // Time in minutes between consecutive tank top-up attempts
 
@@ -378,7 +381,7 @@ int cmdRom (int argc, char **argv) {
   Cli.xprintf ("I_full     = %u\n", Nvm.iFull);
   Cli.xprintf ("I_pump     = %u\n", Nvm.iPump);
   Cli.xprintf ("I_thr_dry  = %u\n", G.thrDry);
-  Cli.xprintf ("I_thr_full = %u\n", G.thrFull);  
+  Cli.xprintf ("I_thr_full = %u\n", G.thrFull);
   Cli.xprintf ("V_dry      = %u\n", Nvm.vDry);
   Cli.xprintf ("V_full     = %u\n", Nvm.vFull);
   Cli.xprintf ("V_pump     = %u\n", Nvm.vPump);
