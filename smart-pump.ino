@@ -33,13 +33,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 2.0.1
- * Date:    April 17, 2022
+ * Version: 2.1.0
+ * Date:    April 19, 2022
  */
 
 #define VERSION_MAJOR 2  // Major version
-#define VERSION_MINOR 0  // Minor version
-#define VERSION_MAINT 1  // Maintenance version
+#define VERSION_MINOR 1  // Minor version
+#define VERSION_MAINT 0  // Maintenance version
 
 
 #include <Arduino.h>
@@ -66,11 +66,13 @@
  */
 #define SERIAL_BAUD         115200  // Serial communication baud rate
 #define ADC_AVG_SAMPLES       1024  // Number of ADC samples to be averaged
+#define ADC_V_CORRECTION       100  // Voltage correction factor (256 -> 1, 128 -> 0.5, 0 -> 0)
+#define ADC_I_FROST_THR       1000  // ADC current reading threshold for triggering frost protection
 #define DEBOUNCE_SAMPLES        20  // Button debouncing level (ms until a button press is detected)
 #define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
-#define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
+#define APPLY_PRESS_DURATION  1023  // Long button press duration in ms to apply the calibration setting
 #define MEAS_DURATION         1000  // Pump current measurement duration in ms
-#define CAL_TIMEOUT          30000  // Time in ms to exit the calibration mode if no button was pressed
+#define CAL_TIMEOUT         300000  // Time in ms to exit the calibration mode if no button was pressed
 #define TOP_UP_INTERVAL         30  // Time in minutes between consecutive tank top-up attempts
 
 
@@ -84,15 +86,19 @@ struct {
     STANDBY_E, STANDBY,
     PUMP_E, PUMP,
     CAL_E, CAL_I_PUMP, CAL_I_FULL, CAL_I_DRY} state = OFF_E;  // Main state
-  uint16_t iAdcVal;      // ADC pump current reading value
-  uint16_t vAdcVal;      // ADC power supply voltage value
-  uint16_t mosfet;       // MOSFET switch state
-  uint16_t thrDry;       // Current threshold for dry run detection
-  uint16_t thrFull;      // Current threshold for full tank detection
-  uint16_t vAvgDry;      // Average power supply voltage at calibration time of the dry run threshold
-  uint16_t vAvgFull;     // Average power supply voltage at calibration time of the full tank threshold
-  uint16_t iAdcDryVal;   // Normalized ADC value for detecting the dry run condition
-  uint16_t iAdcFullVal;  // Normalized ADC value for detecting the Full tank condition
+  uint16_t iAdcVal;       // ADC pump current reading value
+  uint16_t vAdcVal;       // ADC power supply voltage value
+  uint16_t mosfet;        // MOSFET switch state
+  uint16_t thrDry;        // Current threshold for dry run detection
+  uint16_t thrFull;       // Current threshold for full tank detection
+  uint16_t vAvgDry;       // Average power supply voltage at calibration time of the dry run threshold
+  uint16_t vAvgFull;      // Average power supply voltage at calibration time of the full tank threshold
+  uint16_t iAdcDryVal;    // Normalized ADC value for detecting the dry run condition
+  uint16_t iAdcFullVal;   // Normalized ADC value for detecting the Full tank condition
+  int16_t  vAdcDryCorr;   // Dry ADC voltage correction value
+  int16_t  vAdcFullCorr;  // Full ADC voltage correction value
+  uint16_t iAdcTest = 0;  // ADC current dummy test value
+  uint16_t vAdcTest = 0;  // ADC voltage dummy test value
 } G;
 
 
@@ -107,6 +113,8 @@ struct {
   uint16_t vDry;   // Power supply voltage at dry run calibration time
   uint16_t vFull;  // Power supply voltage at full calibration time
   uint16_t vPump;  // Power supply voltage at regular pumping calibration time
+  uint16_t iLast;  // Last registered current before switching to standy state
+  uint16_t vLast;  // Last registered voltage before switching to standy state
 } Nvm;
 
 
@@ -120,6 +128,7 @@ LedClass    Led;
 /*
  * Function declarations
  */
+void saveLastVal (void);
 void nvmRead     (void);
 void nvmWrite    (void);
 void nvmValidate (void);
@@ -127,6 +136,9 @@ void mosfetOff   (void);
 void mosfetOn    (void);
 int  cmdShow     (int argc, char **argv);
 int  cmdRom      (int argc, char **argv);
+int  cmdTestI    (int argc, char **argv);
+int  cmdTestV    (int argc, char **argv);
+
 
 
 /*
@@ -152,6 +164,8 @@ void setup () {
   Cli.newCmd     ("s"   , "Show real time readings"                  , cmdShow);
   Cli.newCmd     ("."   , ""                                         , cmdShow);
   Cli.newCmd     ("r"   , "Show the calibration data"                , cmdRom);
+  Cli.newCmd     ("i"   , "Set current test value (arg: <value>)"    , cmdTestI);
+  Cli.newCmd     ("v"   , "Set voltage test value (arg: <value>)"    , cmdTestV);
 
   AdcPin_t adcPins[NUM_APINS] = {I_APIN, V_APIN};
   Adc.initialize (ADC_PRESCALER_128, ADC_INTERNAL, ADC_AVG_SAMPLES, NUM_APINS, adcPins);
@@ -169,6 +183,7 @@ void loop () {
   static uint32_t measTs         = 0;
   static uint32_t topupTs        = 0;
   static uint32_t calTs          = 0;
+  static uint32_t frostTs        = 0;
   static uint16_t iAdcDryValMin  = 0;
   static uint16_t iAdcFullValMin = 0;
   uint32_t ts = millis ();
@@ -195,10 +210,21 @@ void loop () {
   }
 
   if (Adc.readAll ()) {
-    G.iAdcVal     = Adc.result[I_APIN];
-    G.vAdcVal     = Adc.result[V_APIN];
-    G.iAdcDryVal  = ((uint32_t)G.iAdcVal * (uint32_t)G.vAvgDry) / G.vAdcVal;
-    G.iAdcFullVal = ((uint32_t)G.iAdcVal * (uint32_t)G.vAvgFull) / G.vAdcVal;
+    if (G.iAdcTest == 0) G.iAdcVal = Adc.result[I_APIN];
+    else                 G.iAdcVal = G.iAdcTest;
+
+    if (G.vAdcTest == 0) G.vAdcVal = Adc.result[V_APIN];
+    else                 G.vAdcVal = G.vAdcTest;
+
+    G.vAdcDryCorr  = ((int32_t)G.vAdcVal - (int32_t)G.vAvgDry) * (int32_t)ADC_V_CORRECTION / 256;
+    G.vAdcFullCorr = ((int32_t)G.vAdcVal - (int32_t)G.vAvgFull) * (int32_t)ADC_V_CORRECTION / 256;
+    G.iAdcDryVal   = ((uint32_t)G.iAdcVal * (uint32_t)G.vAvgDry) / (G.vAdcVal + G.vAdcDryCorr);
+    G.iAdcFullVal  = ((uint32_t)G.iAdcVal * (uint32_t)G.vAvgFull) / (G.vAdcVal + G.vAdcFullCorr);
+  }
+
+  if (G.iAdcFullVal < ADC_I_FROST_THR) frostTs = ts;
+  if (ts - frostTs > MEAS_DURATION) {
+    G.state = G.OFF_E;
   }
 
   switch (G.state) {
@@ -225,6 +251,7 @@ void loop () {
 
     // STANDBY: Periodically activate pump to top-up the water tank
     case G.STANDBY_E:
+      saveLastVal();
       mosfetOff ();
       Led.blink (-1, 100, 1900);
       topupTs = ts;
@@ -246,6 +273,7 @@ void loop () {
       G.state = G.PUMP;
     case G.PUMP:
       if (Button.falling()) {
+        saveLastVal();
         G.state = G.OFF_E;
       }
       if (G.iAdcFullVal > G.thrFull) {
@@ -308,6 +336,16 @@ void loop () {
 
 
 /*
+ * Save last I and V ADC values
+ */
+void saveLastVal (void) {
+  Nvm.iLast = G.iAdcVal;
+  Nvm.vLast = G.vAdcVal;
+  nvmWrite ();
+}
+
+
+/*
  * Read EEPROM data
  */
 void nvmRead (void) {
@@ -362,11 +400,15 @@ void mosfetOn (void) {
 int cmdShow (int argc, char **argv) {
   Cli.xprintf ("Realtime data:\n");
   Cli.xprintf ("State      = %u\n", G.state);
+  Cli.xprintf ("MOSFET     = %u\n", G.mosfet);
   Cli.xprintf ("I_adc      = %u\n", G.iAdcVal);
   Cli.xprintf ("I_adc_dry  = %u\n", G.iAdcDryVal);
   Cli.xprintf ("I_adc_full = %u\n", G.iAdcFullVal);
   Cli.xprintf ("V_adc      = %u\n", G.vAdcVal);
-  Cli.xprintf ("MOSFET     = %u\n", G.mosfet);
+  Cli.xprintf ("V_cor_dry  = %d\n", G.vAdcDryCorr);
+  Cli.xprintf ("V_cor_full = %d\n", G.vAdcFullCorr);
+  Cli.xprintf ("I_test     = %u\n", G.iAdcTest);
+  Cli.xprintf ("V_test     = %u\n", G.vAdcTest);
   Serial.println ("");
   return 0;
 }
@@ -387,6 +429,36 @@ int cmdRom (int argc, char **argv) {
   Cli.xprintf ("V_pump     = %u\n", Nvm.vPump);
   Cli.xprintf ("V_avg_dry  = %u\n", G.vAvgDry);
   Cli.xprintf ("V_avg_full = %u\n", G.vAvgFull);
+  Cli.xprintf ("I_last     = %u\n", Nvm.iLast);
+  Cli.xprintf ("V_last     = %u\n", Nvm.vLast);
+  Serial.println ("");
+  return 0;
+}
+
+
+/*
+ * Set the ADC test current value
+ */
+int  cmdTestI    (int argc, char **argv) {
+  uint16_t val;
+  if (argc == 2) val = atoi(argv[1]);
+  else           return 1;
+  G.iAdcTest = val;
+  Cli.xprintf ("I_test = %u\n", G.iAdcTest);
+  Serial.println ("");
+  return 0;
+}
+
+
+/*
+ * Set the ADC test voltage value
+ */
+int  cmdTestV    (int argc, char **argv) {
+  uint16_t val;
+  if (argc == 2) val = atoi(argv[1]);
+  else           return 1;
+  G.vAdcTest = val;
+  Cli.xprintf ("V_test = %u\n", G.vAdcTest);
   Serial.println ("");
   return 0;
 }
