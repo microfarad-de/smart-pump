@@ -138,6 +138,7 @@ int  cmdShow     (int argc, char **argv);
 int  cmdRom      (int argc, char **argv);
 int  cmdTestI    (int argc, char **argv);
 int  cmdTestV    (int argc, char **argv);
+int  cmdSetNvm   (int argc, char **argv);
 
 
 
@@ -166,6 +167,7 @@ void setup () {
   Cli.newCmd     ("r"   , "Show the calibration data"                , cmdRom);
   Cli.newCmd     ("i"   , "Set current test value (arg: <value>)"    , cmdTestI);
   Cli.newCmd     ("v"   , "Set voltage test value (arg: <value>)"    , cmdTestV);
+  Cli.newCmd     ("n"   , "Set NVM value (arg: <idx> <value>)"       , cmdSetNvm);
 
   AdcPin_t adcPins[NUM_APINS] = {I_APIN, V_APIN};
   Adc.initialize (ADC_PRESCALER_128, ADC_INTERNAL, ADC_AVG_SAMPLES, NUM_APINS, adcPins);
@@ -439,7 +441,7 @@ int cmdRom (int argc, char **argv) {
 /*
  * Set the ADC test current value
  */
-int  cmdTestI    (int argc, char **argv) {
+int cmdTestI (int argc, char **argv) {
   uint16_t val;
   if (argc == 2) val = atoi(argv[1]);
   else           return 1;
@@ -453,12 +455,34 @@ int  cmdTestI    (int argc, char **argv) {
 /*
  * Set the ADC test voltage value
  */
-int  cmdTestV    (int argc, char **argv) {
+int cmdTestV (int argc, char **argv) {
   uint16_t val;
   if (argc == 2) val = atoi(argv[1]);
   else           return 1;
   G.vAdcTest = val;
   Cli.xprintf ("V_test = %u\n", G.vAdcTest);
   Serial.println ("");
+  return 0;
+}
+
+
+/*
+ * Set an NVM value
+ */
+int cmdSetNvm (int argc, char **argv) {
+  uint16_t idx;
+  uint16_t val;
+  uint16_t *ptr = (uint16_t *)&Nvm;
+  if (argc == 3) {
+    idx = atoi(argv[1]);
+    val = atoi(argv[2]);
+  }
+  else {
+    return 1;
+  }
+  ptr[idx] = val;
+  Cli.xprintf ("Nvm[%u] = %u\n", idx, ptr[idx]);
+  Serial.println ("");
+  nvmWrite ();
   return 0;
 }
