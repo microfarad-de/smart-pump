@@ -34,7 +34,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Version: 2.1.0
- * Date:    April 19, 2022
+ * Date:    April 22, 2022
  */
 
 #define VERSION_MAJOR 2  // Major version
@@ -65,14 +65,14 @@
  * Configuration parameters
  */
 #define SERIAL_BAUD         115200  // Serial communication baud rate
-#define ADC_AVG_SAMPLES       1024  // Number of ADC samples to be averaged
+#define ADC_AVG_SAMPLES        128  // Number of ADC samples to be averaged
 #define ADC_V_CORRECTION       100  // Voltage correction factor (256 -> 1, 128 -> 0.5, 0 -> 0)
 #define ADC_I_FROST_THR       1000  // ADC current reading threshold for triggering frost protection
 #define DEBOUNCE_SAMPLES        20  // Button debouncing level (ms until a button press is detected)
 #define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
 #define APPLY_PRESS_DURATION  1023  // Long button press duration in ms to apply the calibration setting
 #define MEAS_DURATION         1000  // Pump current measurement duration in ms
-#define CAL_TIMEOUT         300000  // Time in ms to exit the calibration mode if no button was pressed
+#define PUMP_TIMEOUT            10  // Time in minutes to exit the calibration mode if no button was pressed
 #define TOP_UP_INTERVAL         30  // Time in minutes between consecutive tank top-up attempts
 
 
@@ -185,6 +185,7 @@ void loop () {
   static uint32_t measTs         = 0;
   static uint32_t topupTs        = 0;
   static uint32_t calTs          = 0;
+  static uint32_t pumpTs         = 0;
   static uint32_t frostTs        = 0;
   static uint16_t iAdcDryValMin  = 0;
   static uint16_t iAdcFullValMin = 0;
@@ -205,7 +206,7 @@ void loop () {
       G.state = G.OFF_E;
       nvmValidate ();
     }
-    if (ts - calTs > CAL_TIMEOUT) {
+    if (ts - calTs > PUMP_TIMEOUT * 60000) {
       G.state = G.OFF_E;
       nvmValidate ();
     }
@@ -253,7 +254,6 @@ void loop () {
 
     // STANDBY: Periodically activate pump to top-up the water tank
     case G.STANDBY_E:
-      saveLastVal();
       mosfetOff ();
       Led.blink (-1, 100, 1900);
       topupTs = ts;
@@ -272,6 +272,7 @@ void loop () {
       mosfetOn ();
       Led.turnOn ();
       measTs = ts;
+      pumpTs = ts;
       G.state = G.PUMP;
     case G.PUMP:
       if (Button.falling()) {
@@ -284,12 +285,22 @@ void loop () {
         iAdcFullValMin = G.iAdcFullVal;
       }
       else if (ts - measTs > MEAS_DURATION) {
-        if      (iAdcDryValMin < G.thrDry)   G.state = G.OFF_E;
-        else if (iAdcFullValMin < G.thrFull) G.state = G.STANDBY_E;
+        if (iAdcDryValMin < G.thrDry) {
+          saveLastVal();
+          G.state = G.OFF_E;
+        }
+        else if (iAdcFullValMin < G.thrFull) {
+          saveLastVal();
+          G.state = G.STANDBY_E;
+        }
       }
       else {
         if (G.iAdcDryVal < iAdcDryValMin)   iAdcDryValMin = G.iAdcDryVal;
         if (G.iAdcFullVal < iAdcFullValMin) iAdcFullValMin = G.iAdcFullVal;
+      }
+      if (ts - pumpTs > PUMP_TIMEOUT * 60000) {
+        saveLastVal();
+        G.state = G.OFF_E;
       }
       break;
 
