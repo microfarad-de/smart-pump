@@ -28,7 +28,7 @@ One usually fills the water of the caravan on board tank from a canister trolley
 Whereas a 12 Volt water pump is often used to transfer the water from the canister into the on board tank.
 The smart pump controller provieds the following features:
 * Automatically deactivate the water pump if it runs dry
-* Automatically deactivate the water pump if the caravan tank gets full
+* Automatically deactivate the water pump if the caravan tank becomes full
 * Top up the caravan tank when the caravan tank water level goes below the full threashold
 
 The controller detects pump dry run condition by measuring its current draw.
