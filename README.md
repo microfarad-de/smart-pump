@@ -28,26 +28,24 @@ One usually fills the water of the caravan on board tank from a canister trolley
 Whereas a 12 Volt water pump is often used to transfer the water from the canister into the on board tank.
 The smart pump controller provieds the following features:
 * Automatically deactivate the water pump if it runs dry
-* Automatically deactivate the water pump if the caravan tank gets full when filling through the
-  caravan's city water connection
-* Periodically attempt to top up the caravan tank when using the caravan's city water connection
+* Automatically deactivate the water pump if the caravan tank gets full
+* Top up the caravan tank when the caravan tank water level goes below the full threashold
 
-The controller detects one of the following three water pump states by constantly measuring its current draw:
-* Regular pumping
-* Water flow blocked by the float valve when the caravan tank becomes full
-* Dry run due to the external canister running out of water
-
+The controller detects pump dry run condition by measuring its current draw.
 The following table shows the approximate current draw of a "Comet Lux-Plus" water pump at 13.0 V:
 
 | State          | Current  |
 |----------------|----------|
 | Pumping        | 3.7 A    |
-| Full / blocked | 2.4 A    |
+| Output blocked | 2.4 A    |
 | Dry run        | 0.6 A    |
+
+The controller senses the voltage across a pair of electrodes plunged into the caravan tank in order to detect the full tank condition.
 
 Pumping is started and stopped by pressing the push button. The pump will be automatically deactivated if the dry run condition has been detected.
 
-If the full tank condition is detected, the controller will deactivate the pump and go into the standby mode. Whereas the controller will periodically attempt the reactivate the water pump once p in order to top up the tank. The default time duration between two top-up attempts is 30 minutes and is defined by the `TOP_UP_INTERVAL` macro.
+If the full tank condition is detected, the controller will deactivate the pump and go into the standby mode. Whereas the controller will reactivate the water pump if
+the water level inside the caravan tank goes below the preset full threshold.
 
 A status LED indicates the operation status through different blinking patterns as shown in the table below:
 
@@ -58,16 +56,13 @@ A status LED indicates the operation status through different blinking patterns 
 | Blink once every 2 s          | Standby state, the pump will start periodically  |
 | Inverse blink every 0.5 s     | Error, calibration needed                        |
 | Even blink with 1 s period    | Pumping current calibration                      |
-| Even blink with 0.5 s period  | Full / blocked current calibration               |
-| Even blink with 0.25 s period | Dry run current calibration                      |
+| Even blink with 0.5 s period  | Dry run current calibration                      |
 
 ## Calibration Procedure
 
 Enter the calibration mode by long-pressing the button during 5 seconds. Make sure that the pump is immersed in water and the output hose is not obstructued. The pump will start and the LED will blink evenly with a 1 second period to indicate the pumping current calibration.
 
-Long-press the button during 1 second to store the current value for the regular pumping operation. The LED blinking period will decrease to 0.5 seconds to indicate the full tank current calibration.
-
-Squeeze the pump output hose to ensure that the water flow is completely blocked, then press the button during 1 second to store the current value. The LED blinking period will further decrese to 0.25 seconds to indecate the dry run current calibration.
+Long-press the button during 1 second to store the current value for the regular pumping operation. The LED blinking period will decrease to 0.5 seconds to indicate the dry run current calibration.
 
 Raise the pump above water level to ensure it is running dry, then long-press the button during 1 second to store the current value. If the calibration procedure was successful, the LED will turn off and the controller will go to the power off state.
 
@@ -86,6 +81,8 @@ The following picture shows the smart pump controller circuit diagram:
 
 ## PCB Layout
 
+TBD
+<!-- >
 The circuit is assembled on a prototyping stripboard PCB as shown in the follwoing pictures:
 
 <p align="center">
@@ -100,6 +97,7 @@ The circuit is assembled on a prototyping stripboard PCB as shown in the follwoi
   <img src="doc/pcb-bottom.jpeg" width="400"/>
 </p>
 
+-->
 ## Gallery
 
 Following are further pictures of the finished project:
