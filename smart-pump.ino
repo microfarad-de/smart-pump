@@ -64,6 +64,7 @@
 /*
  * Configuration parameters
  */
+#define SAVE_LAST_VALUES            // Save last read current and level values to EEPROM
 #define SERIAL_BAUD         115200  // Serial communication baud rate
 #define ADC_AVG_SAMPLES        128  // Number of ADC samples to be averaged
 #define ADC_I_FROST_THR       1000  // ADC current reading threshold for triggering frost protection
@@ -85,10 +86,10 @@ struct {
     STANDBY_E, STANDBY,
     PUMP_E, PUMP,
     CAL_E, CAL_I_PUMP, CAL_I_DRY} state = OFF_E;  // Main state
-  uint16_t iAdcVal;       // ADC pump current reading value
-  uint16_t levelAdcVal;   // ADC water level probe reading value
-  uint16_t mosfet;        // MOSFET switch state
-  uint16_t iThrDry;        // Current threshold for dry run detection
+  uint16_t iAdcVal;      // ADC pump current reading value
+  uint16_t levelAdcVal;  // ADC water level probe reading value
+  uint16_t mosfet;       // MOSFET switch state
+  uint16_t iThrDry;      // Current threshold for dry run detection
 } G;
 
 
@@ -96,10 +97,11 @@ struct {
  * Parameters stored in EEPROM (non-volatile memory)
  */
 struct {
-  uint16_t iDry;   // ADC reading when the pump is running dry
-  uint16_t iPump;  // ADC reading for regular pumping operation
-                   // Note: iDry < iPump
-  uint16_t iLast;  // Last registered current before switching to standy state
+  uint16_t iDry;       // ADC reading when the pump is running dry
+  uint16_t iPump;      // ADC reading for regular pumping operation
+                       // Note: iDry < iPump
+  uint16_t iLast;      // Last registered current before switching to standy state
+  uint16_t levelLast;  // Last registered onboard tank level value
 } Nvm;
 
 
@@ -315,8 +317,11 @@ void loop () {
  * Save last I ADC value
  */
 void saveLastVal (void) {
-  Nvm.iLast = G.iAdcVal;
+#ifdef SAVE_LAST_VALUES
+  Nvm.iLast     = G.iAdcVal;
+  Nvm.levelLast = G.levelAdcVal;
   nvmWrite ();
+#endif
 }
 
 
@@ -387,7 +392,10 @@ int cmdRom (int argc, char **argv) {
   Cli.xprintf ("I_dry      = %u\n", Nvm.iDry);
   Cli.xprintf ("I_pump     = %u\n", Nvm.iPump);
   Cli.xprintf ("I_thr_dry  = %u\n", G.iThrDry);
+#ifdef SAVE_LAST_VALUES
   Cli.xprintf ("I_last     = %u\n", Nvm.iLast);
+  Cli.xprintf ("L_last     = %u\n", Nvm.levelLast);
+#endif
   Serial.println ("");
   return 0;
 }
