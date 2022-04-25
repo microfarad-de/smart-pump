@@ -199,6 +199,8 @@ void loop () {
     G.levelAdcVal = Adc.result[LEVEL_APIN];
   }
 
+  // If iAdcVal exceeds ADC_I_FROST_THR for MEAS_DURATION,
+  // then turn of the pump.
   if (G.iAdcVal < ADC_I_FROST_THR) {
     frostTs = ts;
   }
@@ -239,6 +241,8 @@ void loop () {
         G.state = G.OFF_E;
       }
 
+      // If levelAdcVal exceeds ADC_LEVEL_FULL_THR for more than MEAS duration,
+      // then start pumping. levelAdcVal increases with decreasing water level.
       if (G.levelAdcVal < ADC_LEVEL_FULL_THR) {
         levelMeasTs = ts;
       }
