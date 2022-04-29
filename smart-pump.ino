@@ -68,7 +68,8 @@
 #define SERIAL_BAUD         115200  // Serial communication baud rate
 #define ADC_AVG_SAMPLES        128  // Number of ADC samples to be averaged
 #define ADC_I_FROST_THR       1000  // ADC current reading threshold for triggering frost protection
-#define ADC_LEVEL_FULL_THR     500  // ADC reading threshold for detecting a full onboard tank
+#define ADC_LEVEL_HIGH_THR     900  // ADC reading threshold for detecting a full onboard tank
+#define ADC_LEVEL_LOW_THR     1000  // ADC reading threshold for detecting a non-full onboard tank
 #define DEBOUNCE_SAMPLES        20  // Button debouncing level (ms until a button press is detected)
 #define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
 #define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
@@ -242,7 +243,7 @@ void loop () {
 
       // If levelAdcVal exceeds ADC_LEVEL_FULL_THR for more than MEAS duration,
       // then start pumping. levelAdcVal increases with decreasing water level.
-      if (G.levelAdcVal < ADC_LEVEL_FULL_THR) {
+      if (G.levelAdcVal < ADC_LEVEL_LOW_THR) {
         levelMeasTs = ts;
       }
       else if (ts - levelMeasTs > MEAS_DURATION) {
@@ -272,7 +273,7 @@ void loop () {
         G.state = G.OFF_E;
       }
 
-      if (G.levelAdcVal > ADC_LEVEL_FULL_THR) {
+      if (G.levelAdcVal > ADC_LEVEL_HIGH_THR) {
         levelMeasTs = ts;
       }
       else if (ts - levelMeasTs > MEAS_DURATION) {
