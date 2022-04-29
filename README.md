@@ -81,31 +81,24 @@ The following picture shows the smart pump controller circuit diagram:
 
 ## PCB Layout
 
-TBD
-<!-- >
 The circuit is assembled on a prototyping stripboard PCB as shown in the follwoing pictures:
 
 <p align="center">
-  <img src="doc/pcb-top-1.jpeg" width="400"/>
-</p>
-
-<p align="center">
-  <img src="doc/pcb-top-2.jpeg" width="400"/>
+  <img src="doc/pcb-top.jpeg" width="400"/>
 </p>
 
 <p align="center">
   <img src="doc/pcb-bottom.jpeg" width="400"/>
 </p>
 
--->
 ## Gallery
 
 Following are further pictures of the finished project:
-
+<!--
 <p align="center">
   <img src="doc/enclosure-2.jpeg" width="400"/>
 </p>
-
+-->
 <p align="center">
   <img src="doc/perspective-1.jpeg" width="400"/>
 </p>
