@@ -68,7 +68,7 @@
 #define SERIAL_BAUD         115200  // Serial communication baud rate
 #define ADC_AVG_SAMPLES        128  // Number of ADC samples to be averaged
 #define ADC_I_FROST_THR       1000  // ADC current reading threshold for triggering frost protection
-#define ADC_LEVEL_FULL_THR    1000  // ADC reading threshold for detecting a full onboard tank
+#define ADC_LEVEL_FULL_THR     500  // ADC reading threshold for detecting a full onboard tank
 #define DEBOUNCE_SAMPLES        20  // Button debouncing level (ms until a button press is detected)
 #define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
 #define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
@@ -170,7 +170,6 @@ void loop () {
   static uint32_t calTs          = 0;
   static uint32_t pumpTs         = 0;
   static uint32_t frostTs        = 0;
-  static uint16_t iAdcDryValMin  = 0;
   uint32_t ts = millis ();
 
   Cli.getCmd ();
