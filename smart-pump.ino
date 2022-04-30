@@ -64,7 +64,7 @@
 /*
  * Configuration parameters
  */
-#define SAVE_LAST_VALUES            // Save last read current and level values to EEPROM
+//#define SAVE_LAST_VALUES            // Save last read current and level values to EEPROM
 #define SERIAL_BAUD         115200  // Serial communication baud rate
 #define ADC_AVG_SAMPLES        128  // Number of ADC samples to be averaged
 #define ADC_I_FROST_THR       1000  // ADC current reading threshold for triggering frost protection
@@ -74,7 +74,7 @@
 #define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
 #define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
 #define MEAS_DURATION         1000  // Pump current measurement duration in ms
-#define PUMP_TIMEOUT            10  // Time in minutes to exit the calibration mode if no button was pressed
+#define PUMP_TIMEOUT            15  // Time in minutes to exit the calibration mode if no button was pressed
 
 
 /*
