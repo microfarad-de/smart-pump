@@ -272,20 +272,20 @@ void loop () {
         G.state = G.OFF_E;
       }
 
-      if (G.iAdcVal > G.iThrDry) {
-        dryMeasTs = ts;
-      }
-      else if (ts - dryMeasTs > MEAS_DURATION) {
-        saveLastVal ();
-        G.state = G.OFF_E;
-      }
-
       if (G.levelAdcVal > ADC_LEVEL_HIGH_THR) {
         levelMeasTs = ts;
       }
       else if (ts - levelMeasTs > (standby ? STANDBY_DELAY * 1000 : MEAS_DURATION)) {
         saveLastVal ();
         G.state = G.STANDBY_E;
+      }
+
+      if (G.iAdcVal > G.iThrDry) {
+        dryMeasTs = ts;
+      }
+      else if (ts - dryMeasTs > MEAS_DURATION) {
+        saveLastVal ();
+        G.state = G.OFF_E;
       }
 
       if (ts - pumpTs > PUMP_TIMEOUT * 60000) {
