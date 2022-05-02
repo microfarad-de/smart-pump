@@ -75,6 +75,7 @@
 #define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
 #define MEAS_DURATION         1000  // Pump current measurement duration in ms
 #define PUMP_TIMEOUT            15  // Time in minutes to exit the calibration mode if no button was pressed
+#define TOP_UP_DELAY             1  // Minimum time in minutes between consecutive top-up attempts
 
 
 /*
@@ -168,6 +169,7 @@ void setup () {
 void loop () {
   static uint32_t dryMeasTs      = 0;
   static uint32_t levelMeasTs    = 0;
+  static uint32_t topUpTs        = 0;
   static uint32_t calTs          = 0;
   static uint32_t pumpTs         = 0;
   static uint32_t frostTs        = 0;
@@ -235,6 +237,7 @@ void loop () {
       mosfetOff ();
       Led.blink (-1, 100, 1900);
       levelMeasTs = ts;
+      topUpTs     = ts;
       G.state     = G.STANDBY;
     case G.STANDBY:
       if (Button.falling()) {
@@ -243,7 +246,7 @@ void loop () {
 
       // If levelAdcVal exceeds ADC_LEVEL_FULL_THR for more than MEAS duration,
       // then start pumping. levelAdcVal increases with decreasing water level.
-      if (G.levelAdcVal < ADC_LEVEL_LOW_THR) {
+      if (G.levelAdcVal < ADC_LEVEL_LOW_THR || ts - topUpTs < TOP_UP_DELAY * 60000) {
         levelMeasTs = ts;
       }
       else if (ts - levelMeasTs > MEAS_DURATION) {
