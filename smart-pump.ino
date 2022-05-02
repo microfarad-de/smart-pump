@@ -74,8 +74,9 @@
 #define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
 #define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
 #define MEAS_DURATION         1000  // Pump current measurement duration in ms
-#define PUMP_TIMEOUT            15  // Time in minutes to exit the calibration mode if no button was pressed
-#define TOP_UP_DELAY             1  // Minimum time in minutes between consecutive top-up attempts
+#define PUMP_TIMEOUT            15  // Maximum pump run duration in minutes
+#define TOP_UP_DELAY             1  // Delay in minutes before restarting the pump after going into the standby state
+#define STANDBY_DELAY           30  // Delay in seconds before going into the standby state
 
 
 /*
@@ -167,12 +168,13 @@ void setup () {
  * Main loop
  */
 void loop () {
-  static uint32_t dryMeasTs      = 0;
-  static uint32_t levelMeasTs    = 0;
-  static uint32_t topUpTs        = 0;
-  static uint32_t calTs          = 0;
-  static uint32_t pumpTs         = 0;
-  static uint32_t frostTs        = 0;
+  static uint32_t dryMeasTs   = 0;
+  static uint32_t levelMeasTs = 0;
+  static uint32_t topUpTs     = 0;
+  static uint32_t calTs       = 0;
+  static uint32_t pumpTs      = 0;
+  static uint32_t frostTs     = 0;
+  static bool     standby     = false;
   uint32_t ts = millis ();
 
   Cli.getCmd ();
@@ -225,6 +227,7 @@ void loop () {
       mosfetOff ();
       Led.turnOff ();
       Led.blink (1, 100, 0);
+      standby = false;
       G.state = G.OFF;
     case G.OFF:
       if (Button.falling()) {
@@ -238,6 +241,7 @@ void loop () {
       Led.blink (-1, 100, 1900);
       levelMeasTs = ts;
       topUpTs     = ts;
+      standby     = true;
       G.state     = G.STANDBY;
     case G.STANDBY:
       if (Button.falling()) {
@@ -279,7 +283,7 @@ void loop () {
       if (G.levelAdcVal > ADC_LEVEL_HIGH_THR) {
         levelMeasTs = ts;
       }
-      else if (ts - levelMeasTs > MEAS_DURATION) {
+      else if (ts - levelMeasTs > (standby ? STANDBY_DELAY * 1000 : MEAS_DURATION)) {
         saveLastVal ();
         G.state = G.STANDBY_E;
       }
