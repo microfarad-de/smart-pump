@@ -68,13 +68,13 @@
 #define SERIAL_BAUD         115200  // Serial communication baud rate
 #define ADC_AVG_SAMPLES        128  // Number of ADC samples to be averaged
 #define ADC_I_FROST_THR       1000  // ADC current reading threshold for triggering frost protection
-#define ADC_LEVEL_HIGH_THR     800  // ADC reading threshold for detecting a full onboard tank (dry: 920)
-#define ADC_LEVEL_LOW_THR      845  // ADC reading threshold for detecting a non-full onboard tank (dry: 860 plugged / 830 unplugged)
+#define ADC_LEVEL_HIGH_THR     400  // ADC reading threshold for detecting a full onboard tank (dry: 920)
+#define ADC_LEVEL_LOW_THR      700  // ADC reading threshold for detecting a non-full onboard tank (dry: 860 plugged / 830 unplugged)
 #define DEBOUNCE_SAMPLES        20  // Button debouncing level (ms until a button press is detected)
 #define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
 #define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
 #define MEAS_DURATION         1000  // Pump current measurement duration in ms
-#define PUMP_TIMEOUT            15  // Maximum pump run duration in minutes
+#define PUMP_TIMEOUT            10  // Maximum pump run duration in minutes
 #define TOP_UP_DELAY             0  // Delay in seconds before restarting the pump after going into the standby state
 #define STANDBY_DELAY           30  // Delay in seconds before going into the standby state
 
