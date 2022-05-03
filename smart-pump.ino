@@ -59,24 +59,27 @@
 #define MOSFET_PIN          9  // Digital output pin controlling the gate of the power MOSFET
 #define LED_PIN            10  // Digital output pin controlling the status LED
 #define BUTTON_PIN         11  // Digital input pin reading the push button
+#define LEVEL_PULSE_PIN     8  // Digital output pin generating pulses for the level probe
 
 
 /*
  * Configuration parameters
  */
-#define SAVE_LAST_VALUES            // Save last read current and level values to EEPROM
-#define SERIAL_BAUD         115200  // Serial communication baud rate
-#define ADC_AVG_SAMPLES        128  // Number of ADC samples to be averaged
-#define ADC_I_FROST_THR       1000  // ADC current reading threshold for triggering frost protection
-#define ADC_LEVEL_HIGH_THR     400  // ADC reading threshold for detecting a full onboard tank (dry: 920)
-#define ADC_LEVEL_LOW_THR      700  // ADC reading threshold for detecting a non-full onboard tank (dry: 860 plugged / 830 unplugged)
-#define DEBOUNCE_SAMPLES        20  // Button debouncing level (ms until a button press is detected)
-#define CAL_PRESS_DURATION    5000  // Long button press duration in ms to enter the calibration mode
-#define APPLY_PRESS_DURATION  1000  // Long button press duration in ms to apply the calibration setting
-#define MEAS_DURATION         1000  // Pump current measurement duration in ms
-#define PUMP_TIMEOUT            10  // Maximum pump run duration in minutes
-#define TOP_UP_DELAY             0  // Delay in seconds before restarting the pump after going into the standby state
-#define STANDBY_DELAY           30  // Delay in seconds before going into the standby state
+#define SAVE_LAST_VALUES               // Save last read current and level values to EEPROM
+#define SERIAL_BAUD            115200  // Serial communication baud rate
+#define ADC_AVG_SAMPLES            16  // Number of ADC samples to be averaged
+#define ADC_I_FROST_THR          1000  // ADC current reading threshold for triggering frost protection
+#define ADC_LEVEL_HIGH_THR        700  // ADC reading threshold for detecting a full onboard tank (dry: 920)
+#define ADC_LEVEL_LOW_THR         700  // ADC reading threshold for detecting a non-full onboard tank (dry: 860 plugged / 830 unplugged)
+#define DEBOUNCE_SAMPLES           20  // Button debouncing level (ms until a button press is detected)
+#define CAL_PRESS_DURATION       5000  // Long button press duration in ms to enter the calibration mode
+#define APPLY_PRESS_DURATION     1000  // Long button press duration in ms to apply the calibration setting
+#define MEAS_DURATION            1000  // Pump current measurement duration in ms
+#define PUMP_TIMEOUT               10  // Maximum pump run duration in minutes
+#define TOP_UP_DELAY                0  // Delay in seconds before restarting the pump after going into the standby state
+#define STANDBY_DELAY              30  // Delay in seconds before going into the standby state
+#define LEVEL_PULSE_OFF_DURATION   50  // Off duration in ms of the level probe power pulse
+#define LEVEL_PULSE_ON_DURATION    50  // On duration in ms of the level probe power pulse
 
 
 /*
@@ -118,6 +121,7 @@ LedClass    Led;
 /*
  * Function declarations
  */
+bool levelPulse  (void);
 void saveLastVal (void);
 void nvmRead     (void);
 void nvmWrite    (void);
@@ -141,6 +145,8 @@ void setup () {
   digitalWrite (MOSFET_PIN, LOW);
   pinMode      (LED_PIN, OUTPUT);
   digitalWrite (LED_PIN, LOW);
+  pinMode      (LEVEL_PULSE_PIN, OUTPUT);
+  digitalWrite (LEVEL_PULSE_PIN, LOW);
   pinMode      (BUTTON_PIN, INPUT_PULLUP);
 
   Cli.init ( SERIAL_BAUD );
@@ -200,7 +206,9 @@ void loop () {
 
   if (Adc.readAll ()) {
     G.iAdcVal = Adc.result[I_APIN];
-    G.levelAdcVal = Adc.result[LEVEL_APIN];
+    if (levelPulse()) {
+      G.levelAdcVal = Adc.result[LEVEL_APIN];
+    }
   }
 
   // If iAdcVal exceeds ADC_I_FROST_THR for MEAS_DURATION,
@@ -248,7 +256,7 @@ void loop () {
         G.state = G.OFF_E;
       }
 
-      // If levelAdcVal exceeds ADC_LEVEL_FULL_THR for more than MEAS duration,
+      // If levelAdcVal exceeds ADC_LEVEL_LOW_THR for more than MEAS duration,
       // then start pumping. levelAdcVal increases with decreasing water level.
       if (G.levelAdcVal < ADC_LEVEL_LOW_THR || ts - topUpTs < TOP_UP_DELAY * 1000) {
         levelMeasTs = ts;
@@ -323,6 +331,32 @@ void loop () {
   }
 }
 
+
+/*
+ * Toggle the digital output pin for powering the water level probe
+ */
+bool levelPulse (void) {
+  static uint32_t pulseTs = 0;
+  static uint8_t  state   = LOW;
+  uint32_t ts = millis ();
+
+  if (state == LOW) {
+    if (ts - pulseTs > LEVEL_PULSE_OFF_DURATION) {
+      state   = HIGH;
+      digitalWrite (LEVEL_PULSE_PIN, state);
+    }
+  }
+  else {
+    if (ts - pulseTs > LEVEL_PULSE_ON_DURATION + LEVEL_PULSE_OFF_DURATION) {
+      pulseTs = ts;
+      state   = LOW;
+      digitalWrite (LEVEL_PULSE_PIN, state);
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /*
  * Save last I ADC value
