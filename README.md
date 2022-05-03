@@ -127,5 +127,9 @@ Following are further pictures of the finished project:
   <img src="doc/final-3.jpeg" width="400"/>
 </p>
 
+<p align="center">
+  <img src="doc/final-4.jpeg" width="400"/>
+</p>
+
 
 
