@@ -78,8 +78,7 @@
 #define PUMP_TIMEOUT               10  // Maximum pump run duration in minutes
 #define TOP_UP_DELAY                0  // Delay in seconds before restarting the pump after going into the standby state
 #define STANDBY_DELAY              30  // Delay in seconds before going into the standby state
-#define LEVEL_PULSE_OFF_DURATION   50  // Off duration in ms of the level probe power pulse
-#define LEVEL_PULSE_ON_DURATION    50  // On duration in ms of the level probe power pulse
+#define LEVEL_PULSE_PERIOD        100  // Period in ms of the level probe power pulse
 
 
 /*
@@ -206,7 +205,7 @@ void loop () {
 
   if (Adc.readAll ()) {
     G.iAdcVal = Adc.result[I_APIN];
-    if (levelPulse()) {
+    if (levelPulse ()) {
       G.levelAdcVal = Adc.result[LEVEL_APIN];
     }
   }
@@ -341,13 +340,13 @@ bool levelPulse (void) {
   uint32_t ts = millis ();
 
   if (state == LOW) {
-    if (ts - pulseTs > LEVEL_PULSE_OFF_DURATION) {
+    if (ts - pulseTs > (LEVEL_PULSE_PERIOD / 2)) {
       state   = HIGH;
       digitalWrite (LEVEL_PULSE_PIN, state);
     }
   }
   else {
-    if (ts - pulseTs > LEVEL_PULSE_ON_DURATION + LEVEL_PULSE_OFF_DURATION) {
+    if (ts - pulseTs > LEVEL_PULSE_PERIOD) {
       pulseTs = ts;
       state   = LOW;
       digitalWrite (LEVEL_PULSE_PIN, state);
