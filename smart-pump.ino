@@ -34,7 +34,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Version: 3.0.0
- * Date:    April 23, 2022
+ * Date:    May 04, 2022
  */
 
 #define VERSION_MAJOR 3  // Major version
