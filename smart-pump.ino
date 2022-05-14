@@ -34,7 +34,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Version: 3.0.0
- * Date:    May 04, 2022
+ * Date:    May 16, 2022
  */
 
 #define VERSION_MAJOR 3  // Major version
@@ -91,10 +91,12 @@ struct {
     STANDBY_E, STANDBY,
     PUMP_E, PUMP,
     CAL_E, CAL_I_PUMP, CAL_I_DRY} state = OFF_E;  // Main state
-  uint16_t iAdcVal;      // ADC pump current reading value
-  uint16_t levelAdcVal;  // ADC water level probe reading value
-  uint16_t mosfet;       // MOSFET switch state
-  uint16_t iThrDry;      // Current threshold for dry run detection
+  uint16_t iAdcVal;           // ADC pump current reading value
+  uint16_t levelAdcValH = 0;  // ADC water level probe reading value at its high peak
+  uint16_t levelAdcValL = 0;  // ADC water level probe reading value at its low peak
+  uint16_t levelAdcVal;       // ADC water level probe reading peak to peak
+  uint16_t mosfet;            // MOSFET switch state
+  uint16_t iThrDry;           // Current threshold for dry run detection
 } G;
 
 
@@ -111,6 +113,16 @@ struct {
 
 
 /*
+ * Return value of levelPulse()
+ */
+typedef enum {
+  LEVEL_NONE,
+  LEVEL_HIGH,
+  LEVEL_LOW
+} Level_e;
+
+
+/*
  * Objects
  */
 ButtonClass Button;
@@ -120,16 +132,16 @@ LedClass    Led;
 /*
  * Function declarations
  */
-bool levelPulse  (void);
-void saveLastVal (void);
-void nvmRead     (void);
-void nvmWrite    (void);
-void nvmValidate (void);
-void mosfetOff   (void);
-void mosfetOn    (void);
-int  cmdShow     (int argc, char **argv);
-int  cmdRom      (int argc, char **argv);
-int  cmdSetNvm   (int argc, char **argv);
+Level_e levelPulse  (void);
+void    saveLastVal (void);
+void    nvmRead     (void);
+void    nvmWrite    (void);
+void    nvmValidate (void);
+void    mosfetOff   (void);
+void    mosfetOn    (void);
+int     cmdShow     (int argc, char **argv);
+int     cmdRom      (int argc, char **argv);
+int     cmdSetNvm   (int argc, char **argv);
 
 
 
@@ -180,6 +192,7 @@ void loop () {
   static uint32_t pumpTs      = 0;
   static uint32_t frostTs     = 0;
   static bool     standby     = false;
+  Level_e         level;
   uint32_t ts = millis ();
 
   Cli.getCmd ();
@@ -205,8 +218,14 @@ void loop () {
 
   if (Adc.readAll ()) {
     G.iAdcVal = Adc.result[I_APIN];
-    if (levelPulse ()) {
-      G.levelAdcVal = Adc.result[LEVEL_APIN];
+    level = levelPulse ();
+    if (level == LEVEL_HIGH) {
+      G.levelAdcValH = Adc.result[LEVEL_APIN];
+      G.levelAdcVal = G.levelAdcValH - G.levelAdcValL;
+    }
+    else if (level == LEVEL_LOW) {
+      G.levelAdcValL = Adc.result[LEVEL_APIN];
+      G.levelAdcVal = G.levelAdcValH - G.levelAdcValL;
     }
   }
 
@@ -334,7 +353,7 @@ void loop () {
 /*
  * Toggle the digital output pin for powering the water level probe
  */
-bool levelPulse (void) {
+Level_e levelPulse (void) {
   static uint32_t pulseTs = 0;
   static uint8_t  state   = LOW;
   uint32_t ts = millis ();
@@ -343,6 +362,7 @@ bool levelPulse (void) {
     if (ts - pulseTs > (LEVEL_PULSE_PERIOD / 2)) {
       state   = HIGH;
       digitalWrite (LEVEL_PULSE_PIN, state);
+      return LEVEL_LOW;
     }
   }
   else {
@@ -350,11 +370,11 @@ bool levelPulse (void) {
       pulseTs = ts;
       state   = LOW;
       digitalWrite (LEVEL_PULSE_PIN, state);
-      return true;
+      return LEVEL_HIGH;
     }
   }
 
-  return false;
+  return LEVEL_NONE;
 }
 
 /*
@@ -419,10 +439,12 @@ void mosfetOn (void) {
  */
 int cmdShow (int argc, char **argv) {
   Cli.xprintf ("Realtime data:\n");
-  Cli.xprintf ("State  = %u\n", G.state);
-  Cli.xprintf ("MOSFET = %u\n", G.mosfet);
-  Cli.xprintf ("I_adc  = %u\n", G.iAdcVal);
-  Cli.xprintf ("L_adc  = %u\n", G.levelAdcVal);
+  Cli.xprintf ("State   = %u\n", G.state);
+  Cli.xprintf ("MOSFET  = %u\n", G.mosfet);
+  Cli.xprintf ("I_adc   = %u\n", G.iAdcVal);
+  Cli.xprintf ("L_adc_h = %u\n", G.levelAdcValH);
+  Cli.xprintf ("L_adc_l = %u\n", G.levelAdcValL);
+  Cli.xprintf ("L_adc   = %u\n", G.levelAdcVal);
   Serial.println ("");
   return 0;
 }
