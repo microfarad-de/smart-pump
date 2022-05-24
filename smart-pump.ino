@@ -38,7 +38,7 @@
  */
 
 #define VERSION_MAJOR 3  // Major version
-#define VERSION_MINOR 0  // Minor version
+#define VERSION_MINOR 1  // Minor version
 #define VERSION_MAINT 0  // Maintenance version
 
 
@@ -77,7 +77,7 @@
 #define MEAS_DURATION            1000  // Pump current measurement duration in ms
 #define PUMP_TIMEOUT               10  // Maximum pump run duration in minutes
 #define TOP_UP_DELAY                0  // Delay in seconds before restarting the pump after going into the standby state
-#define STANDBY_DELAY               1  // Delay in seconds before going into the standby state
+#define STANDBY_DELAY               5  // Delay in seconds before going into the standby state
 #define LEVEL_PULSE_PERIOD        100  // Period in ms of the level probe power pulse
 
 
