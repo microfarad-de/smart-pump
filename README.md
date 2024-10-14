@@ -24,9 +24,10 @@ Unless stated otherwise within the source file headers, please feel free to use 
 ## Theory of Operation
 
 The smart water pump controller is a convenience feature for caravaning applications.
-One usually fills the water of the caravan on board tank from a canister trolley of some sort.
-Whereas a 12 Volt water pump is often used to transfer the water from the canister into the on board tank.
-The smart pump controller provieds the following features:
+The caravan's on board water tank is filled using a portable canister.
+A 12 Volt water pump is often used to transfer the water from the canister into the on board tank.
+
+The smart pump controller has the following features:
 * Automatically deactivate the water pump if it runs dry
 * Automatically deactivate the water pump if the caravan tank becomes full
 * Top up the caravan tank when the caravan tank water level goes below the full threashold
@@ -40,7 +41,7 @@ The following table shows the approximate current draw of a "Comet Lux-Plus" wat
 | Output blocked | 2.4 A    |
 | Dry run        | 0.6 A    |
 
-The controller senses the voltage across a pair of electrodes plunged into the caravan tank in order to detect the full tank condition.
+The controller sends AC voltage pulses across a pair of electrodes plunged into the caravan tank, and measures the resulting voltage drop in order to detect the full tank condition.
 
 Pumping is started and stopped by pressing the push button. The pump will be automatically deactivated if the dry run condition has been detected.
 
