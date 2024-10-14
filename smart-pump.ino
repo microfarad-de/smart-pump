@@ -230,7 +230,7 @@ void loop () {
   }
 
   // If iAdcVal exceeds ADC_I_FROST_THR for MEAS_DURATION,
-  // then turn of the pump.
+  // then turn off the pump.
   if (G.iAdcVal < ADC_I_FROST_THR) {
     frostTs = ts;
   }
