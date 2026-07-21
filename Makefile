@@ -48,3 +48,15 @@ USER_LIB_PATH = src
 ARDUINO_LIBS = Adc Cli Button Led Nvm EEPROM
 
 include ${ARDMK_DIR}/Arduino.mk
+
+serial:
+	./tools/serial-console ${DEVICE_PATH} ${MONITOR_BAUDRATE}
+.PHONY: serial
+
+release: clean
+	./release.sh
+.PHONY: release
+
+clean::
+	./release.sh clean
+.PHONY: clean

@@ -33,8 +33,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 3.0.0
- * Date:    May 16, 2022
+ * Version: 3.1.0
+ * Date:    July 21, 2026
  */
 
 #define VERSION_MAJOR 3  // Major version
@@ -152,10 +152,22 @@ void setup () {
   // clear MCU status register following a watchdog reset
   MCUSR = 0;
 
+  // Configure all unused pins as INPUT_PULLUP to avoid
+  // excessive power draw due to toggling floating pins
+  // except crystal pins.
+  DDRB  = 0x00;
+  DDRC  = 0x00;
+  DDRD  = 0x00;
+  PORTB = 0x3F;   // D8–D13 pull-ups enabled
+  PORTC = 0x3F;   // A0–A5 pull-ups enabled
+  PORTD = 0xFF;   // D0–D7 pull-ups enabled
+
+  pinMode      (A2, INPUT);
+  pinMode      (A3, INPUT);
+  pinMode      (LED_BUILTIN, OUTPUT);
+  digitalWrite (LED_BUILTIN, LOW);
   pinMode      (MOSFET_PIN, OUTPUT);
   digitalWrite (MOSFET_PIN, LOW);
-  pinMode      (LED_PIN, OUTPUT);
-  digitalWrite (LED_PIN, LOW);
   pinMode      (LEVEL_PULSE_PIN, OUTPUT);
   digitalWrite (LEVEL_PULSE_PIN, LOW);
   pinMode      (BUTTON_PIN, INPUT_PULLUP);
@@ -164,7 +176,7 @@ void setup () {
   Serial.println ("");
   Serial.println (F("+ + +  S M A R T  P U M P  + + +"));
   Serial.println ("");
-  Cli.xprintf    ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
+  Cli.xprintf    ("V %d.%d.%d\r\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
   Serial.println ("");
   Serial.println (F("'h' for help"));
   Cli.newCmd     ("s"   , "Show real time readings"                  , cmdShow);
@@ -438,13 +450,13 @@ void mosfetOn (void) {
  * CLI command for displaying the ADC reading
  */
 int cmdShow (int argc, char **argv) {
-  Cli.xprintf ("Realtime data:\n");
-  Cli.xprintf ("State   = %u\n", G.state);
-  Cli.xprintf ("MOSFET  = %u\n", G.mosfet);
-  Cli.xprintf ("I_adc   = %u\n", G.iAdcVal);
-  Cli.xprintf ("L_adc_h = %u\n", G.levelAdcValH);
-  Cli.xprintf ("L_adc_l = %u\n", G.levelAdcValL);
-  Cli.xprintf ("L_adc   = %u\n", G.levelAdcVal);
+  Cli.xprintf ("Realtime data:\r\n");
+  Cli.xprintf ("State   = %u\r\n", G.state);
+  Cli.xprintf ("MOSFET  = %u\r\n", G.mosfet);
+  Cli.xprintf ("I_adc   = %u\r\n", G.iAdcVal);
+  Cli.xprintf ("L_adc_h = %u\r\n", G.levelAdcValH);
+  Cli.xprintf ("L_adc_l = %u\r\n", G.levelAdcValL);
+  Cli.xprintf ("L_adc   = %u\r\n", G.levelAdcVal);
   Serial.println ("");
   return 0;
 }
@@ -454,13 +466,13 @@ int cmdShow (int argc, char **argv) {
  * CLI command for displaying the calibration data
  */
 int cmdRom (int argc, char **argv) {
-  Cli.xprintf ("Calibration data:\n");
-  Cli.xprintf ("I_dry      = %u\n", Nvm.iDry);
-  Cli.xprintf ("I_pump     = %u\n", Nvm.iPump);
-  Cli.xprintf ("I_thr_dry  = %u\n", G.iThrDry);
+  Cli.xprintf ("Calibration data:\r\n");
+  Cli.xprintf ("I_dry      = %u\r\n", Nvm.iDry);
+  Cli.xprintf ("I_pump     = %u\r\n", Nvm.iPump);
+  Cli.xprintf ("I_thr_dry  = %u\r\n", G.iThrDry);
 #ifdef SAVE_LAST_VALUES
-  Cli.xprintf ("I_last     = %u\n", Nvm.iLast);
-  Cli.xprintf ("L_last     = %u\n", Nvm.levelLast);
+  Cli.xprintf ("I_last     = %u\r\n", Nvm.iLast);
+  Cli.xprintf ("L_last     = %u\r\n", Nvm.levelLast);
 #endif
   Serial.println ("");
   return 0;
@@ -482,7 +494,7 @@ int cmdSetNvm (int argc, char **argv) {
     return 1;
   }
   ptr[idx] = val;
-  Cli.xprintf ("Nvm[%u] = %u\n", idx, ptr[idx]);
+  Cli.xprintf ("Nvm[%u] = %u\r\n", idx, ptr[idx]);
   Serial.println ("");
   nvmWrite ();
   return 0;

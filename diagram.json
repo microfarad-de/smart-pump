@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "author": "Karim Hraibi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-nano",
+      "id": "nano",
+      "top": 40,
+      "left": 330,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-slide-potentiometer",
+      "id": "level",
+      "top": 40,
+      "left": 30,
+      "attrs": {
+        "value": "0",
+        "travelLength": "60"
+      }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "levelLabel",
+      "top": 10,
+      "left": 45,
+      "attrs": {
+        "text": "LEVEL input (A3)"
+      }
+    },
+    {
+      "type": "wokwi-slide-potentiometer",
+      "id": "current",
+      "top": 250,
+      "left": 30,
+      "attrs": {
+        "value": "0",
+        "travelLength": "60"
+      }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "currentLabel",
+      "top": 220,
+      "left": 25,
+      "attrs": {
+        "text": "Shunt/current sense (A2)"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "sw1",
+      "top": 335,
+      "left": 355,
+      "attrs": {
+        "color": "green",
+        "label": "SW1",
+        "key": "S",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": 275,
+      "left": 610,
+      "rotate": 90,
+      "attrs": {
+        "value": "2200"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "statusLed",
+      "top": 345,
+      "left": 618,
+      "attrs": {
+        "color": "red",
+        "label": "D1 status"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r6",
+      "top": 105,
+      "left": 610,
+      "rotate": 90,
+      "attrs": {
+        "value": "1000"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "motorLed",
+      "top": 175,
+      "left": 618,
+      "attrs": {
+        "color": "blue",
+        "label": "Motor/MOSFET output"
+      }
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic",
+      "top": 40,
+      "left": 760,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-text",
+      "id": "note",
+      "top": 430,
+      "left": 20,
+      "attrs": {
+        "text": "Functional Wokwi model: the 12V regulator, AC-coupled LEVEL network, MOSFET, flyback diode and 0.25-ohm shunt are replaced by interactive 0-5V inputs and LEDs because Wokwi does not simulate the complete analog/power stage."
+      }
+    }
+  ],
+  "connections": [
+    [ "nano:5V", "level:VCC", "red", [ "v-20", "h-245" ] ],
+    [ "nano:GND.1", "level:GND", "black", [ "v-10", "h-260" ] ],
+    [ "level:SIG", "nano:A3", "green", [ "h165", "v65" ] ],
+
+    [ "nano:5V", "current:VCC", "red", [ "v160", "h-245" ] ],
+    [ "nano:GND.1", "current:GND", "black", [ "v175", "h-260" ] ],
+    [ "current:SIG", "nano:A2", "green", [ "h180", "v-35" ] ],
+
+    [ "nano:11", "sw1:1.l", "green", [ "v80", "h-15" ] ],
+    [ "sw1:2.l", "nano:GND.2", "black", [ "v35", "h75", "v-10" ] ],
+
+    [ "nano:10", "r3:1", "green", [ "h95", "v55" ] ],
+    [ "r3:2", "statusLed:A", "green", [] ],
+    [ "statusLed:C", "nano:GND.2", "black", [ "v35", "h-120" ] ],
+
+    [ "nano:9", "r6:1", "green", [ "h95", "v-15" ] ],
+    [ "r6:2", "motorLed:A", "green", [] ],
+    [ "motorLed:C", "nano:GND.2", "black", [ "v165", "h-125" ] ],
+
+    [ "nano:9", "logic:D0", "blue", [ "h205", "v-40" ] ],
+    [ "nano:10", "logic:D1", "orange", [ "h185", "v-10" ] ],
+    [ "nano:11", "logic:D2", "purple", [ "h165", "v20" ] ],
+    [ "nano:A3", "logic:D3", "green", [ "h145", "v50" ] ],
+    [ "nano:GND.2", "logic:GND", "black", [ "h260", "v-70" ] ]
+  ],
+  "dependencies": {}
+}

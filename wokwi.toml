@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'build-pro-16MHzatmega328/smart-pump.hex'
+elf = 'build-pro-16MHzatmega328/smart-pump.elf'
