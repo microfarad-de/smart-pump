@@ -33,21 +33,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 3.1.0
+ * Version: 3.5.0
  * Date:    July 21, 2026
  */
 
 #define VERSION_MAJOR 3  // Major version
-#define VERSION_MINOR 1  // Minor version
+#define VERSION_MINOR 5  // Minor version
 #define VERSION_MAINT 0  // Maintenance version
 
 
 #include <Arduino.h>
+#include <avr/sleep.h>
+#include <avr/wdt.h>
 #include "src/Adc/Adc.h"
 #include "src/Cli/Cli.h"
 #include "src/Led/Led.h"
 #include "src/Nvm/Nvm.h"
 #include "src/Button/Button.h"
+
 
 
 /*
@@ -66,7 +69,7 @@
  * Configuration parameters
  */
 //#define SIM                          // Simulator build
-#define SAVE_LAST_VALUES               // Save last read current and level values to EEPROM
+//#define SAVE_LAST_VALUES             // Save last read current and level values to EEPROM
 #define SERIAL_BAUD            115200  // Serial communication baud rate
 #define ADC_AVG_SAMPLES            16  // Number of ADC samples to be averaged
 #define ADC_I_FROST_THR          1000  // ADC current reading threshold for triggering frost protection
@@ -134,6 +137,7 @@ LedClass    Led;
  * Function declarations
  */
 Level_e levelPulse  (void);
+void    powerSave   (void);
 void    saveLastVal (void);
 void    nvmRead     (void);
 void    nvmWrite    (void);
@@ -150,8 +154,10 @@ int     cmdSetNvm   (int argc, char **argv);
  * Initialization routine
  */
 void setup () {
-  // clear MCU status register following a watchdog reset
-  MCUSR = 0;
+  // Clear watchdog reset flag
+  MCUSR &= ~(1 << WDRF);
+  // Enable the watchdog timer
+  wdt_enable (WDTO_8S);
 
   // Configure all unused pins as INPUT_PULLUP to avoid
   // excessive power draw due to toggling floating pins
@@ -261,6 +267,7 @@ void loop () {
       mosfetOff ();
       Led.blink (-1, 500, 100);
       G.state = G.ERROR;
+      [[fallthrough]]
     case G.ERROR:
       break;
 
@@ -271,6 +278,7 @@ void loop () {
       Led.blink (1, 100, 0);
       standby = false;
       G.state = G.OFF;
+      [[fallthrough]]
     case G.OFF:
       if (Button.falling()) {
         G.state = G.PUMP_E;
@@ -285,6 +293,7 @@ void loop () {
       topUpTs     = ts;
       standby     = true;
       G.state     = G.STANDBY;
+      [[fallthrough]]
     case G.STANDBY:
       if (Button.falling()) {
         G.state = G.OFF_E;
@@ -308,6 +317,7 @@ void loop () {
       levelMeasTs = ts;
       pumpTs      = ts;
       G.state     = G.PUMP;
+      [[fallthrough]]
     case G.PUMP:
       if (Button.falling ()) {
         saveLastVal ();
@@ -342,6 +352,7 @@ void loop () {
       Led.blink (-1, 500, 500);
       calTs = ts;
       G.state = G.CAL_I_PUMP;
+      [[fallthrough]]
 
     // Calibrate pumping current
     case G.CAL_I_PUMP:
@@ -362,7 +373,17 @@ void loop () {
         nvmWrite ();
       }
       break;
+
+    default:
+      mosfetOff ();
+      Led.turnOff ();
+      G.state = G.OFF_E;
+      break;
+
   }
+
+  wdt_reset();
+  powerSave();
 }
 
 
@@ -392,6 +413,21 @@ Level_e levelPulse (void) {
 
   return LEVEL_NONE;
 }
+
+
+/*
+ * Power saving routine
+ * Enables CPU sleep mode
+ */
+void powerSave (void) {
+  set_sleep_mode (SLEEP_MODE_IDLE);
+  cli ();
+  sleep_enable ();  // Enter sleep, wakeup will be triggered by the next Timer 0 interrupt
+  sei ();
+  sleep_cpu ();
+  sleep_disable ();
+}
+
 
 /*
  * Save last I ADC value
