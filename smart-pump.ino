@@ -65,6 +65,7 @@
 /*
  * Configuration parameters
  */
+//#define SIM                          // Simulator build
 #define SAVE_LAST_VALUES               // Save last read current and level values to EEPROM
 #define SERIAL_BAUD            115200  // Serial communication baud rate
 #define ADC_AVG_SAMPLES            16  // Number of ADC samples to be averaged
@@ -237,6 +238,9 @@ void loop () {
     }
     else if (level == LEVEL_LOW) {
       G.levelAdcValL = Adc.result[LEVEL_APIN];
+      #ifdef SIM
+      if (G.levelAdcValL > 511) G.levelAdcValL = 1023 - G.levelAdcValL;
+      #endif
       G.levelAdcVal = G.levelAdcValH - G.levelAdcValL;
     }
   }
@@ -246,7 +250,7 @@ void loop () {
   if (G.iAdcVal < ADC_I_FROST_THR) {
     frostTs = ts;
   }
-  else if (ts - frostTs > MEAS_DURATION) {
+  else if (ts - frostTs > MEAS_DURATION && G.state > G.OFF) {
     G.state = G.OFF_E;
   }
 

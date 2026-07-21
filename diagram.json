@@ -61,16 +61,6 @@
       }
     },
     {
-      "type": "wokwi-resistor",
-      "id": "r3",
-      "top": 275,
-      "left": 610,
-      "rotate": 90,
-      "attrs": {
-        "value": "2200"
-      }
-    },
-    {
       "type": "wokwi-led",
       "id": "statusLed",
       "top": 345,
@@ -78,16 +68,6 @@
       "attrs": {
         "color": "red",
         "label": "D1 status"
-      }
-    },
-    {
-      "type": "wokwi-resistor",
-      "id": "r6",
-      "top": 105,
-      "left": 610,
-      "rotate": 90,
-      "attrs": {
-        "value": "1000"
       }
     },
     {
@@ -99,13 +79,6 @@
         "color": "blue",
         "label": "Motor/MOSFET output"
       }
-    },
-    {
-      "type": "wokwi-logic-analyzer",
-      "id": "logic",
-      "top": 40,
-      "left": 760,
-      "attrs": {}
     },
     {
       "type": "wokwi-text",
@@ -129,19 +102,11 @@
     [ "nano:11", "sw1:1.l", "green", [ "v80", "h-15" ] ],
     [ "sw1:2.l", "nano:GND.2", "black", [ "v35", "h75", "v-10" ] ],
 
-    [ "nano:10", "r3:1", "green", [ "h95", "v55" ] ],
-    [ "r3:2", "statusLed:A", "green", [] ],
+    [ "nano:10", "statusLed:A", "green", [ "h95", "v125" ] ],
     [ "statusLed:C", "nano:GND.2", "black", [ "v35", "h-120" ] ],
 
-    [ "nano:9", "r6:1", "green", [ "h95", "v-15" ] ],
-    [ "r6:2", "motorLed:A", "green", [] ],
-    [ "motorLed:C", "nano:GND.2", "black", [ "v165", "h-125" ] ],
-
-    [ "nano:9", "logic:D0", "blue", [ "h205", "v-40" ] ],
-    [ "nano:10", "logic:D1", "orange", [ "h185", "v-10" ] ],
-    [ "nano:11", "logic:D2", "purple", [ "h165", "v20" ] ],
-    [ "nano:A3", "logic:D3", "green", [ "h145", "v50" ] ],
-    [ "nano:GND.2", "logic:GND", "black", [ "h260", "v-70" ] ]
+    [ "nano:9", "motorLed:A", "green", [ "h95", "v55" ] ],
+    [ "motorLed:C", "nano:GND.2", "black", [ "v165", "h-125" ] ]
   ],
   "dependencies": {}
 }
