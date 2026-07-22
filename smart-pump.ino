@@ -34,7 +34,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Version: 3.5.0
- * Date:    July 21, 2026
+ * Date:    July 22, 2026
  */
 
 #define VERSION_MAJOR 3  // Major version
@@ -147,6 +147,7 @@ void    mosfetOn    (void);
 int     cmdShow     (int argc, char **argv);
 int     cmdRom      (int argc, char **argv);
 int     cmdSetNvm   (int argc, char **argv);
+void    printVersion (uint8_t indent);
 
 
 
@@ -183,7 +184,7 @@ void setup () {
   Serial.println ("");
   Serial.println (F("+ + +  S M A R T  P U M P  + + +"));
   Serial.println ("");
-  Cli.xprintf    ("V %d.%d.%d\r\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
+  printVersion (0);
   Serial.println ("");
   Serial.println (F("'h' for help"));
   Cli.newCmd     ("s"   , "Show real time readings"                  , cmdShow);
@@ -491,12 +492,12 @@ void mosfetOn (void) {
  */
 int cmdShow (int argc, char **argv) {
   Cli.xprintf ("Realtime data:\r\n");
-  Cli.xprintf ("State   = %u\r\n", G.state);
-  Cli.xprintf ("MOSFET  = %u\r\n", G.mosfet);
-  Cli.xprintf ("I_adc   = %u\r\n", G.iAdcVal);
-  Cli.xprintf ("L_adc_h = %u\r\n", G.levelAdcValH);
-  Cli.xprintf ("L_adc_l = %u\r\n", G.levelAdcValL);
-  Cli.xprintf ("L_adc   = %u\r\n", G.levelAdcVal);
+  Cli.xprintf ("  State   = %u\r\n", G.state);
+  Cli.xprintf ("  MOSFET  = %u\r\n", G.mosfet);
+  Cli.xprintf ("  I_adc   = %u\r\n", G.iAdcVal);
+  Cli.xprintf ("  L_adc_h = %u\r\n", G.levelAdcValH);
+  Cli.xprintf ("  L_adc_l = %u\r\n", G.levelAdcValL);
+  Cli.xprintf ("  L_adc   = %u\r\n", G.levelAdcVal);
   Serial.println ("");
   return 0;
 }
@@ -507,13 +508,14 @@ int cmdShow (int argc, char **argv) {
  */
 int cmdRom (int argc, char **argv) {
   Cli.xprintf ("Calibration data:\r\n");
-  Cli.xprintf ("I_dry      = %u\r\n", Nvm.iDry);
-  Cli.xprintf ("I_pump     = %u\r\n", Nvm.iPump);
-  Cli.xprintf ("I_thr_dry  = %u\r\n", G.iThrDry);
+  Cli.xprintf ("  I_dry     = %u\r\n", Nvm.iDry);
+  Cli.xprintf ("  I_pump    = %u\r\n", Nvm.iPump);
+  Cli.xprintf ("  I_thr_dry = %u\r\n", G.iThrDry);
 #ifdef SAVE_LAST_VALUES
-  Cli.xprintf ("I_last     = %u\r\n", Nvm.iLast);
-  Cli.xprintf ("L_last     = %u\r\n", Nvm.levelLast);
+  Cli.xprintf ("  I_last    = %u\r\n", Nvm.iLast);
+  Cli.xprintf ("  L_last    = %u\r\n", Nvm.levelLast);
 #endif
+  printVersion (2);
   Serial.println ("");
   return 0;
 }
@@ -539,3 +541,19 @@ int cmdSetNvm (int argc, char **argv) {
   nvmWrite ();
   return 0;
 }
+
+
+/*
+ * Print version info
+ */
+#define STRINGIFY(x) #x
+#define QUOTE(x) STRINGIFY(x)
+void printVersion (uint8_t indent)
+{
+  for (uint8_t i = 0; i < indent; i++) {
+    Serial.print(" ");
+  }
+  Serial.println(F("V " QUOTE(VERSION_MAJOR) "." QUOTE(VERSION_MINOR) "." QUOTE(VERSION_MAINT)));
+}
+
+
